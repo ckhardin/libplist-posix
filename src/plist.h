@@ -72,7 +72,7 @@ enum plist_elem_e {
 	PLIST_REAL,	/* floating point number */
 	PLIST_BOOLEAN,	/* true or false */
 
-	PLIST_UNKNOWN	
+	PLIST_UNKNOWN
 };
 
 
@@ -236,6 +236,30 @@ int plist_date_new(plist_t **datepp, const struct tm *tm);
  * @return zero on success or an error value
  */
 int plist_string_new(plist_t **stringpp, const char *s);
+
+/**
+ * Initialize a plist string element with a format. This will allocate the
+ * required memory and copy the formatted string into the plist element.
+ *
+ * @param  stringpp  result plist date element
+ * @param  fmt       formatted string specification
+ * @return zero on success or an error value
+ */
+int plist_format_new(plist_t **stringpp, const char *fmt, ...)
+	__attribute__ ((format (printf, 2, 3)));
+
+/**
+ * Initialize a plist string element with a format and variable argument list.
+ * This will allocate the required memory and copy the formatted string into
+ * the plist element.
+ *
+ * @param  stringpp  result plist date element
+ * @param  fmt       formatted string specification
+ * @param  ap        variable argument list
+ * @return zero on success or an error value
+ */
+int plist_vformat_new(plist_t **stringpp, const char *fmt, va_list ap)
+	__attribute__ ((format (printf, 2, 0)));
 
 /**
  * Initialize a plist integer element. This will allocate the required

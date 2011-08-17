@@ -226,6 +226,49 @@ plist_string_new(plist_t **stringpp, const char *s)
 
 
 int
+plist_format_new(plist_t **stringpp, const char *fmt, ...)
+{
+	int err;
+	va_list ap;
+
+	if (!stringpp || !fmt) {
+		return EINVAL;
+	}
+
+	va_start(ap, fmt);
+	err = plist_vformat_new(stringpp, fmt, ap);
+	va_end(ap);
+	return err;
+}
+
+
+int
+plist_vformat_new(plist_t **stringpp, const char *fmt, va_list ap)
+{
+	plist_t *string;
+	size_t sz;
+
+	if (!stringpp || !fmt) {
+		return EINVAL;
+	}
+
+	sz = sizeof(*string);
+	sz += vsnprintf(NULL, 0, fmt, ap);
+	string = malloc(sz);
+	if (string == NULL) {
+		return ENOMEM;
+	}
+	memset(string, 0, sizeof(*string));
+
+	string->p_elem = PLIST_STRING;
+	string->p_string.ps_str = (char *) &string[1];
+	vsnprintf(string->p_string.ps_str, sz - sizeof(*string), fmt, ap);
+	*stringpp = string;
+	return 0;
+}
+
+
+int
 plist_integer_new(plist_t **integerpp, int num)
 {
 	plist_t *integer;
