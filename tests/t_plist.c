@@ -42,25 +42,55 @@
 
 #include "plist.h"
 
-ATF_TC(t_plist_dict);
-ATF_TC_HEAD(t_plist_dict, tc)
+ATF_TC(t_plist_new);
+ATF_TC_HEAD(t_plist_new, tc)
 {
-	atf_tc_set_md_var(tc, "descr", "plist dictionary");
+	atf_tc_set_md_var(tc, "descr", "plist new methods");
 }
 
-ATF_TC_BODY(t_plist_dict, tc)
+ATF_TC_BODY(t_plist_new, tc)
 {
-	plist_t *dict;
+	plist_t *ptmp;
+	struct tm tm;
 
 	/* initialization */
-	ATF_REQUIRE(plist_dict_new(&dict) == 0);
+	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
+	plist_free(ptmp);
 
-	plist_free(dict);
+	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
+	plist_free(ptmp);
+
+	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
+	plist_free(ptmp);
+
+	ATF_REQUIRE(plist_data_new(&ptmp, "databuffer",
+				   sizeof("databuffer")) == 0);
+	plist_free(ptmp);
+
+	memset(&tm, 0, sizeof(struct tm));
+	strptime("2001-11-12 18:31:01", "%Y-%m-%d %H:%M:%S", &tm);
+	ATF_REQUIRE(plist_date_new(&ptmp, &tm) == 0);
+	plist_free(ptmp);
+
+	ATF_REQUIRE(plist_string_new(&ptmp, "string") == 0);
+	plist_free(ptmp);
+	ATF_REQUIRE(plist_format_new(&ptmp, "%s%c%s",
+				     "format", '-', "string") == 0);
+	plist_free(ptmp);
+
+	ATF_REQUIRE(plist_integer_new(&ptmp, -1) == 0);
+	plist_free(ptmp);
+
+	ATF_REQUIRE(plist_real_new(&ptmp, 0.123) == 0);
+	plist_free(ptmp);
+
+	ATF_REQUIRE(plist_boolean_new(&ptmp, true) == 0);
+	plist_free(ptmp);
 }
 
 
 ATF_TP_ADD_TCS(tp)
 {
-	ATF_TP_ADD_TC(tp, t_plist_dict);
+	ATF_TP_ADD_TC(tp, t_plist_new);
 	return atf_no_error();
 }

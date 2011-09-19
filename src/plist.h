@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdarg.h>
 #include <time.h> /* for struct tm */
 
 /* forward declare */
