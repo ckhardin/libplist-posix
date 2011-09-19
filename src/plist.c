@@ -425,6 +425,17 @@ plist_free(plist_t *plist)
 	return;
 }
 
+
+bool
+plist_iselem(const plist_t *plist, enum plist_elem_e elem)
+{
+	if (!plist) {
+		return false;
+	}
+	return plist->p_elem == elem;
+}
+
+
 /**
  * Do a hex dump style of a buffer when a count, hex value, and then
  * printable characters at the end.
@@ -468,7 +479,6 @@ _datadump(FILE *fp, const void *buf, size_t bufsz)
 
 #undef _NUMELEM
 }
-
 
 void
 plist_dump(const plist_t *plist, FILE *fp)

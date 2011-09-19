@@ -55,36 +55,60 @@ ATF_TC_BODY(t_plist_new, tc)
 
 	/* initialization */
 	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_DICT) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("dict")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
-	plist_free(ptmp);
-
-	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_ARRAY) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("array")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	ATF_REQUIRE(plist_data_new(&ptmp, "databuffer",
 				   sizeof("databuffer")) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_DATA) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("data")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	memset(&tm, 0, sizeof(struct tm));
 	strptime("2001-11-12 18:31:01", "%Y-%m-%d %H:%M:%S", &tm);
 	ATF_REQUIRE(plist_date_new(&ptmp, &tm) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_DATE) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("date")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	ATF_REQUIRE(plist_string_new(&ptmp, "string") == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_STRING) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("string")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 	ATF_REQUIRE(plist_format_new(&ptmp, "%s%c%s",
 				     "format", '-', "string") == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_STRING) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("string")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	ATF_REQUIRE(plist_integer_new(&ptmp, -1) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_INTEGER) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("integer")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	ATF_REQUIRE(plist_real_new(&ptmp, 0.123) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_REAL) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("real")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 
 	ATF_REQUIRE(plist_boolean_new(&ptmp, true) == 0);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_BOOLEAN) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, plist_stoe("boolean")) == true);
+	ATF_REQUIRE(plist_iselem(ptmp, PLIST_UNKNOWN) == false);
 	plist_free(ptmp);
 }
 

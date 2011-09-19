@@ -301,6 +301,15 @@ int plist_boolean_new(plist_t **booleanpp, bool flag);
 void plist_free(plist_t *plist);
 
 /**
+ * Check if the plist is the specified element.
+ *
+ * @param  plist  element that should be checked
+ * @param  type   enumeration value
+ * @return true on a match, false in all other cases
+ */
+bool plist_iselem(const plist_t *plist, enum plist_elem_e type);
+
+/**
  * Plist buffered io dump routine to pretty print a representation of
  * the property elements.
  *
