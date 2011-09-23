@@ -55,6 +55,7 @@ typedef struct plist_string_s plist_string_t;
 typedef struct plist_integer_s plist_integer_t;
 typedef struct plist_real_s plist_real_t;
 typedef struct plist_boolean_s plist_boolean_t;
+typedef struct plist_iterator_s plist_iterator_t;
 
 /* Define the basic plist element types that are used to compose a plist
  * object.
@@ -152,7 +153,7 @@ struct plist_s {
  * dictionary
  */
 struct plist_iterator_s {
-	const plist_t *pi_elem;
+	enum plist_elem_e pi_elem;
 	const void *pi_opaque;
 };
 
@@ -188,6 +189,11 @@ const char *plist_etos(enum plist_elem_e elem);
  */
 int plist_dict_new(plist_t **dictpp);
 
+int plist_dict_set(plist_t *dict, const char *name, plist_t *value);
+int plist_dict_del(plist_t *dict, const char *name);
+int plist_dict_update(plist_t *dict, const char *name, plist_t *value);
+
+bool plist_dict_haskey(plist_t *dict, const char *name);
 
 /*
  * Arrays
@@ -299,6 +305,38 @@ int plist_boolean_new(plist_t **booleanpp, bool flag);
  * @param  plist  element that should be freed
  */
 void plist_free(plist_t *plist);
+
+
+/*
+ * Iteration
+ */
+
+/**
+ * Initialize the iterator structure with the first element in the
+ * dictionary or array.
+ *
+ * @param  plist  dictionary or array reference
+ * @param  pi     an iterator reference to be setup
+ * @return reference to the first element or null
+ */
+const plist_t *plist_first(const plist_t *plist, plist_iterator_t *pi);
+
+/**
+ * Retrieve the next element using the iterator structure.
+ *
+ * @param  pi     an iterator reference already setup with #plist_first
+ * @return reference to the next element or null
+ */
+const plist_t *plist_next(plist_iterator_t *pi);
+
+/* macros modeled after queue.h */
+#define PLIST_FIRST(_plist, _pi)  plist_first((_plist), (_pi))
+#define PLIST_NEXT(_pi)           plist_next((_pi))
+
+#define PLIST_FOREACH(_pvar, _plist, _pi) \
+	for ((_pvar) = PLIST_FIRST((_plist), (_pi));			\
+	     (_pvar);							\
+	     (_pvar) = PLIST_NEXT((_pi)))
 
 /**
  * Check if the plist is the specified element.

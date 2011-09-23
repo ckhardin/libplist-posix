@@ -436,6 +436,61 @@ plist_iselem(const plist_t *plist, enum plist_elem_e elem)
 }
 
 
+const plist_t *
+plist_first(const plist_t *plist, plist_iterator_t *pi)
+{
+	const plist_t *pvar;
+
+	if (!plist || !pi) {
+		return NULL;
+	}
+
+	switch (plist->p_elem) {
+	case PLIST_DICT:
+		pvar = LIST_FIRST(&plist->p_dict.pd_keys);
+		pi->pi_elem = plist->p_elem;
+		pi->pi_opaque = pvar;
+		return pvar;
+	case PLIST_ARRAY:
+		pvar = LIST_FIRST(&plist->p_array.pa_elems);
+		pi->pi_elem = plist->p_elem;
+		pi->pi_opaque = pvar;
+		return pvar;
+	default:
+		break;
+	}
+	return NULL;
+}
+
+
+const plist_t *
+plist_next(plist_iterator_t *pi)
+{
+	const plist_t *pvar;
+
+	if (!pi || !pi->pi_opaque) {
+		return NULL;
+	}
+	pvar = pi->pi_opaque;
+	assert(pvar->p_parent != NULL);
+	assert(pi->pi_elem == pvar->p_parent->p_elem);
+
+	switch (pi->pi_elem) {
+	case PLIST_DICT:
+		pvar = LIST_NEXT(pvar, p_entry);
+		pi->pi_opaque = pvar;
+		return pvar;
+	case PLIST_ARRAY:
+		pvar = LIST_NEXT(pvar, p_entry);
+		pi->pi_opaque = pvar;
+		return pvar;
+	default:
+		break;
+	}
+	return NULL;
+}
+
+
 /**
  * Do a hex dump style of a buffer when a count, hex value, and then
  * printable characters at the end.
