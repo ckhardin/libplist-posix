@@ -189,11 +189,48 @@ const char *plist_etos(enum plist_elem_e elem);
  */
 int plist_dict_new(plist_t **dictpp);
 
+/**
+ * Set the name entry in dict with the value in plist. On success, the value
+ * becomes a part of the dictionary and should not be freed. If a previous
+ * entry was in the dictionary, then it is freed. This is modeled after
+ * the python dictionary operation d[key] = value.
+ *
+ * @param  dict  dictionary reference to be changed
+ * @param  name  string used as a key for the dictionary entry
+ * @param  value object to be added to the dictionary
+ * @return zero on success or an error value
+ */
 int plist_dict_set(plist_t *dict, const char *name, plist_t *value);
-int plist_dict_del(plist_t *dict, const char *name);
-int plist_dict_update(plist_t *dict, const char *name, plist_t *value);
 
-bool plist_dict_haskey(plist_t *dict, const char *name);
+/**
+ * Remove the name entry in the dictionary and free the resources associated
+ * with an entry.
+ *
+ * @param  dict  dictionary reference to be changed
+ * @param  name  string used as a key in the dictionary
+ * @return zero on success or an error value
+ */
+int plist_dict_del(plist_t *dict, const char *name);
+
+/**
+ * Check if the name entry exists in the dictionary.
+ *
+ * @param  dict  dictionary reference to be searched
+ * @param  name  string used as a key in the dictionary
+ * @return true for a match and false for all other cases
+ */
+bool plist_dict_haskey(const plist_t *dict, const char *name);
+
+/**
+ * Update the dictionary with another dictionary, array of keys, or single
+ * key value. This is modeled after the python dictionary update method.
+ *
+ * @param  dict  dictionary reference to be changed
+ * @param  other dictonary, array of keys, or single key object
+ * @return zero on success or an error value
+ */
+int plist_dict_update(plist_t *dict, const plist_t *other);
+
 
 /*
  * Arrays
@@ -297,6 +334,15 @@ int plist_real_new(plist_t **realpp, double num);
  * @return zero on success or an error value
  */
 int plist_boolean_new(plist_t **booleanpp, bool flag);
+
+/**
+ * Copy a plist element and any children of the element.
+ *
+ * @param  src   reference to a plist element
+ * @param  dstpp pointer reference to the store the result of the copy
+ * @return zero on success or an error value
+ */
+int plist_copy(const plist_t *src, plist_t **dstpp);
 
 /**
  * Deallocate a plist element and any children of the element. This is
