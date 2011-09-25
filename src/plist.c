@@ -30,7 +30,7 @@
  * and files. The plist is currently used in Apple Software and a fairly
  * elegant data structure type.
  *
- * @version $Revision$
+ * @version $Id$
  */
 
 #include <sys/types.h>
@@ -119,6 +119,46 @@ plist_dict_new(plist_t **dictpp)
 	LIST_INIT(&dict->p_dict.pd_keys);
 	*dictpp = dict;
 	return 0;
+}
+
+
+int
+plist_dict_set(plist_t *dict, const char *name, plist_t *value)
+{
+	if (!dict || !name || !value) {
+		return EINVAL;
+	}
+	return ENOSYS;
+}
+
+
+int
+plist_dict_del(plist_t *dict, const char *name)
+{
+	if (!dict || !name) {
+		return EINVAL;
+	}
+	return ENOSYS;
+}
+
+
+bool
+plist_dict_haskey(const plist_t *dict, const char *name)
+{
+	if (!dict || !name) {
+		return false;
+	}
+	return false;
+}
+
+
+int
+plist_dict_update(plist_t *dict, const plist_t *other)
+{
+	if (!dict || !other) {
+		return EINVAL;
+	}
+	return ENOSYS;
 }
 
 
@@ -331,6 +371,13 @@ plist_boolean_new(plist_t **booleanpp, bool flag)
 	boolean->p_boolean.pb_bool = flag;
 	*booleanpp = boolean;
 	return 0;
+}
+
+
+int
+plist_copy(const plist_t *src, plist_t **dstpp)
+{
+	return ENOSYS;
 }
 
 

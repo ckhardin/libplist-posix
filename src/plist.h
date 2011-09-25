@@ -30,7 +30,7 @@
  * and files. The plist is currently used in Apple Software and a fairly
  * elegant data structure type.
  *
- * @version $Revision$
+ * @version $Id$
  */
 
 #ifndef _PLIST_H_
