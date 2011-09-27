@@ -112,9 +112,42 @@ ATF_TC_BODY(t_plist_new, tc)
 	plist_free(ptmp);
 }
 
+ATF_TC(t_plist_dict);
+ATF_TC_HEAD(t_plist_dict, tc)
+{
+	atf_tc_set_md_var(tc, "descr", "plist dictionary");
+}
+
+ATF_TC_BODY(t_plist_dict, tc)
+{
+	plist_t *dict;
+	plist_t *ptmp;
+
+	ATF_REQUIRE(plist_dict_new(&dict) == 0);
+
+	/* insert each type into the dictionary */
+	ATF_REQUIRE(plist_dict_haskey(dict, "dict") == false);
+	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, "dict", ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, "dict", ptmp) == EPERM);
+	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, "dict", ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, "dict") == true);
+
+	ATF_REQUIRE(plist_dict_haskey(dict, "array") == false);
+	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, "array", ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, "array", ptmp) == EPERM);
+	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, "array", ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, "array") == true);
+
+	plist_dump(dict, stderr);
+}
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, t_plist_new);
+	ATF_TP_ADD_TC(tp, t_plist_dict);
 	return atf_no_error();
 }

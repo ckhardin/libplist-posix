@@ -85,7 +85,7 @@ struct plist_dict_s {
 
 struct plist_key_s {
 	char *pk_name;
-	plist_t *pk_elem;
+	plist_t *pk_value;
 };
 
 struct plist_array_s {

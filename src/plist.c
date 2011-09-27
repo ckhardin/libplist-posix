@@ -125,28 +125,82 @@ plist_dict_new(plist_t **dictpp)
 int
 plist_dict_set(plist_t *dict, const char *name, plist_t *value)
 {
+	size_t namesz;
+	plist_t *key;
+	plist_t *ptmp;
+
 	if (!dict || !name || !value) {
 		return EINVAL;
 	}
-	return ENOSYS;
+	if (value->p_parent != NULL) {
+		return EPERM;
+	}
+
+	namesz = strlen(name) + 1;
+	key = malloc(sizeof(*key) + namesz);
+	if (key == NULL) {
+		return ENOMEM;
+	}
+	memset(key, 0, sizeof(*key));
+
+	/* attempt to delete an existing key here, since the allocation
+	 * has already occurred for the new key
+	 */
+	LIST_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
+		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
+			break;
+		}
+	}
+	if (ptmp != NULL) {
+		plist_free(ptmp);
+	}
+
+	key->p_elem = PLIST_KEY;
+	key->p_key.pk_name = (char *) &key[1];
+	memcpy(key->p_key.pk_name, name, namesz);
+	key->p_key.pk_value = value;
+	value->p_parent = key;
+
+	dict->p_dict.pd_numkeys++;
+	LIST_INSERT_HEAD(&dict->p_dict.pd_keys, key, p_entry);
+	key->p_parent = dict;
+	return 0;
 }
 
 
 int
 plist_dict_del(plist_t *dict, const char *name)
 {
+	plist_t *ptmp;
+
 	if (!dict || !name) {
 		return EINVAL;
 	}
-	return ENOSYS;
+
+	LIST_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
+		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
+			break;
+		}
+	}
+	if (ptmp != NULL) {
+		plist_free(ptmp);
+	}
+	return 0;
 }
 
 
 bool
 plist_dict_haskey(const plist_t *dict, const char *name)
 {
+	plist_t *ptmp;
+
 	if (!dict || !name) {
 		return false;
+	}
+	LIST_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
+		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
+			return true;
+		}
 	}
 	return false;
 }
@@ -155,10 +209,82 @@ plist_dict_haskey(const plist_t *dict, const char *name)
 int
 plist_dict_update(plist_t *dict, const plist_t *other)
 {
+	int err;
+	plist_t *ptmp;
+	plist_t *pcopy;
+	LIST_HEAD(, plist_s) plist;
+
 	if (!dict || !other) {
 		return EINVAL;
 	}
-	return ENOSYS;
+
+	LIST_INIT(&plist);
+	if (other->p_elem == PLIST_DICT) {
+		LIST_FOREACH(ptmp, &other->p_dict.pd_keys, p_entry) {
+			err = plist_copy(ptmp, &pcopy);
+			if (err != 0) {
+				goto bail;
+			}
+			LIST_INSERT_HEAD(&plist, pcopy, p_entry);
+		}
+
+		while ((pcopy = LIST_FIRST(&plist)) != NULL) {
+			LIST_REMOVE(pcopy, p_entry);
+
+			plist_dict_del(dict, pcopy->p_key.pk_name);
+
+			dict->p_dict.pd_numkeys++;
+			LIST_INSERT_HEAD(&dict->p_dict.pd_keys,
+					 pcopy, p_entry);
+		}
+		return 0;
+	}
+	if (other->p_elem == PLIST_KEY) {
+		err = plist_copy(other, &pcopy);
+		if (err != 0) {
+			goto bail;
+		}
+
+		plist_dict_del(dict, pcopy->p_key.pk_name);
+
+		dict->p_dict.pd_numkeys++;
+		LIST_INSERT_HEAD(&dict->p_dict.pd_keys, pcopy, p_entry);
+		return 0;
+	}
+	if (other->p_elem == PLIST_ARRAY) {
+		LIST_FOREACH(ptmp, &other->p_array.pa_elems, p_entry) {
+			if (ptmp->p_elem != PLIST_KEY) {
+				/* can only copy array of keys */
+				err = EPERM;
+				goto bail;
+			}
+
+			err = plist_copy(ptmp, &pcopy);
+			if (err != 0) {
+				goto bail;
+			}
+			LIST_INSERT_HEAD(&plist, pcopy, p_entry);
+		}
+
+		while ((pcopy = LIST_FIRST(&plist)) != NULL) {
+			LIST_REMOVE(pcopy, p_entry);
+
+			plist_dict_del(dict, pcopy->p_key.pk_name);
+
+			dict->p_dict.pd_numkeys++;
+			LIST_INSERT_HEAD(&dict->p_dict.pd_keys,
+					 pcopy, p_entry);
+		}
+		return 0;
+	}
+
+	err = EPERM;
+ bail:
+	while ((ptmp = LIST_FIRST(&plist)) != NULL) {
+		LIST_REMOVE(ptmp, p_entry);
+		plist_free(ptmp);
+	}
+	return err;
 }
 
 
@@ -407,8 +533,8 @@ plist_free(plist_t *plist)
 			break;
 		}
 		if (ptmp->p_elem == PLIST_KEY) {
-			assert(ptmp->p_key.pk_elem == plist);
-			ptmp->p_key.pk_elem = NULL;
+			assert(ptmp->p_key.pk_value == plist);
+			ptmp->p_key.pk_value = NULL;
 			break;
 		}
 		/* something got broken since there shouldn't be any
@@ -442,10 +568,10 @@ plist_free(plist_t *plist)
 			assert(plist->p_dict.pd_numkeys == 0);
 			break;
 		case PLIST_KEY:
-			if (plist->p_key.pk_elem != NULL) {
-				ptmp = plist->p_key.pk_elem;
+			if (plist->p_key.pk_value != NULL) {
+				ptmp = plist->p_key.pk_value;
 				LIST_INSERT_HEAD(&pfree, ptmp, p_entry);
-				plist->p_key.pk_elem = NULL;
+				plist->p_key.pk_value = NULL;
 			}
 			break;
 		case PLIST_ARRAY:
@@ -592,7 +718,7 @@ plist_dump(const plist_t *plist, FILE *fp)
 	const plist_t *pnext;
 	char tmbuf[sizeof("YYYY-MM-DDThh:mm:ss.s+hh:mm")];
 
-	if (!fp || !plist) {
+	if (!plist || !fp) {
 		return;
 	}
 
@@ -613,7 +739,7 @@ plist_dump(const plist_t *plist, FILE *fp)
 			break;
 		case PLIST_KEY:
 			fprintf(fp, "=%s\n", pcur->p_key.pk_name);
-			pnext = pcur->p_key.pk_elem;
+			pnext = pcur->p_key.pk_value;
 			if (pnext != NULL) {
 				continue;
 			}
@@ -655,11 +781,12 @@ plist_dump(const plist_t *plist, FILE *fp)
 		}
 
 		/* attempt to ascend */
-		while (pcur != plist) {
-			pnext = pcur->p_parent;
-			if (pnext == NULL) {
+		for (;;) {
+			if (pcur == plist || pcur->p_parent == NULL) {
+				pnext = NULL;
 				break;
 			}
+			pnext = pcur->p_parent;
 
 			if (pnext->p_elem == PLIST_DICT) {
 				indent--;
