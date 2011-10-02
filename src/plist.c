@@ -500,10 +500,231 @@ plist_boolean_new(plist_t **booleanpp, bool flag)
 }
 
 
+/**
+ * Helper function to copy one element for the copy tree decent.
+ */
+static int
+_plist_copyelem(const plist_t *s, plist_t **d)
+{
+	int err;
+	const plist_t *stmp;
+	plist_t *dtmp;
+
+	stmp = s;
+	if (s->p_elem == PLIST_KEY) {
+		/* keys copy the value first and then the key */
+		stmp = s->p_key.pk_value;
+	}
+
+	switch (stmp->p_elem) {
+	case PLIST_DICT:
+		err = plist_dict_new(&dtmp);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_ARRAY:
+		err = plist_array_new(&dtmp);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_DATA:
+		err = plist_data_new(&dtmp, stmp->p_data.pd_data,
+				     stmp->p_data.pd_datasz);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_DATE:
+		err = plist_date_new(&dtmp, &stmp->p_date.pd_tm);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_STRING:
+		err = plist_string_new(&dtmp, stmp->p_string.ps_str);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_INTEGER:
+		err = plist_integer_new(&dtmp, stmp->p_integer.pi_int);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_REAL:
+		err = plist_real_new(&dtmp, stmp->p_real.pr_double);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_BOOLEAN:
+		err = plist_boolean_new(&dtmp, stmp->p_boolean.pb_bool);
+		if (err != 0) {
+			goto bail;
+		}
+		break;
+	case PLIST_KEY:
+		/* should not have a key type - see above */
+	default:
+		return EACCES;
+	}
+
+	if (s->p_elem == PLIST_KEY) {
+		plist_t *key;
+		size_t namesz;
+
+		namesz = strlen(s->p_key.pk_name) + 1;
+		key = malloc(sizeof(*key) + namesz);
+		if (key == NULL) {
+			err = ENOMEM;
+			plist_free(dtmp);
+			goto bail;
+		}
+		memset(key, 0, sizeof(*key));
+		
+		key->p_elem = PLIST_KEY;
+		key->p_key.pk_name = (char *) &key[1];
+		memcpy(key->p_key.pk_name, s->p_key.pk_name, namesz);
+		key->p_key.pk_value = dtmp;
+		dtmp->p_parent = key;
+		dtmp = key;
+	}
+
+	err = 0;
+	*d = dtmp;
+ bail:
+	return err;
+}
+
+
 int
 plist_copy(const plist_t *src, plist_t **dstpp)
 {
-	return ENOSYS;
+	int err;
+	plist_t *dst;
+	plist_t *pcopycur;
+	plist_t *pcopyprev;
+	const plist_t *pcur;
+	const plist_t *pnext;
+
+	if (!src || !dstpp) {
+		return EINVAL;
+	}
+
+	dst = NULL;
+	pcopycur = NULL;
+	pcopyprev = NULL;
+	for (pcur = src; pcur; pcur = pnext) {
+		pnext = NULL; /* default the next element */
+
+		err = _plist_copyelem(pcur, &pcopycur);
+		if (err != 0) {
+			goto bail;
+		}
+		if (dst == NULL) {
+			dst = pcopycur;
+		}
+
+		if (pcopyprev != NULL) {
+			switch (pcopyprev->p_elem) {
+			case PLIST_DICT:
+				pcopycur->p_parent = pcopyprev;
+				LIST_INSERT_HEAD(&pcopyprev->p_dict.pd_keys,
+						 pcopycur, p_entry);
+				break;
+			case PLIST_KEY:
+				pcopycur->p_parent = pcopyprev->p_parent;
+				LIST_INSERT_HEAD(
+					&pcopyprev->p_parent->p_dict.pd_keys,
+					pcopycur, p_entry);
+				break;
+			case PLIST_ARRAY:
+				pcopycur->p_parent = pcopyprev;
+				LIST_INSERT_HEAD(&pcopyprev->p_array.pa_elems,
+						 pcopycur, p_entry);
+				break;
+			default:
+				break;
+			}
+		}
+
+		/* setup the next copy */
+		pnext = pcur;
+		pcopyprev = pcopycur;
+		if (pnext->p_elem == PLIST_KEY) {
+			pnext = pnext->p_key.pk_value;
+			pcopyprev = pcopyprev->p_key.pk_value;
+
+			/* adjust the current pointer thru the key */
+			pcur = pcur->p_key.pk_value;
+		}
+
+		switch (pnext->p_elem) {
+		case PLIST_DICT:
+			pnext = LIST_FIRST(&pnext->p_dict.pd_keys);
+			if (pnext != NULL) {
+				continue;
+			}
+			break;
+		case PLIST_ARRAY:
+			pnext = LIST_FIRST(&pnext->p_array.pa_elems);
+			if (pnext != NULL) {
+				continue;
+			}
+			break;
+		default:
+			break;
+		}
+
+		/* attempt to ascend */
+		for (;;) {
+			if (pcur == src || pcur->p_parent == NULL) {
+				pnext = NULL;
+				break;
+			}
+			pnext = pcur->p_parent;
+
+			if (pnext->p_elem == PLIST_DICT) {
+				pcopyprev = pcopyprev->p_parent;
+				pcur = pnext;
+				continue;
+			}
+			if (pnext->p_elem == PLIST_KEY) {
+				pcopyprev = pcopyprev->p_parent;
+				pnext = LIST_NEXT(pnext, p_entry);
+				if (pnext != NULL) {
+					break;
+				}
+				pcur = pcur->p_parent;
+				continue;
+			}
+			if (pnext->p_elem == PLIST_ARRAY) {
+				pcopyprev = pcopyprev->p_parent;
+				pnext = LIST_NEXT(pcur, p_entry);
+				if (pnext != NULL) {
+					break;
+				}
+				pcur = pcur->p_parent;
+				continue;
+			}
+
+			/* data structure is messed up */
+			pnext = NULL;
+			break;
+		}
+	}
+
+	*dstpp = dst;
+	return 0;
+
+ bail:
+	if (dst != NULL) {
+		plist_free(dst);
+	}
+	return err;
 }
 
 
