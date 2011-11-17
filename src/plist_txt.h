@@ -145,26 +145,27 @@ int plist_txt_new(plist_txt_t **txtpp);
 void plist_txt_free(plist_txt_t *txt);
 
 /**
- * Parse a string fragment using the allocated context. This is an
- * incremental parse function that can process pieces of a string
- *
- * @param  txt  context that was allocated with #plist_txt_new
- * @param  str  pointer to a null terminated character array
- * @return zero on success or an error value
- */
-int plist_txt_parse(plist_txt_t *txt, const char *str);
-
-/**
  * Variant of the parse string fragment using the allocated context.
  * This is similar to #plist_txt_parse but does not require a
  * null terminated string.
  *
  * @param  txt  context that was allocated with #plist_txt_new
- * @param  str  pointer to a character array
+ * @param  buf  pointer to a character array
  * @param  sz   size of the character array
  * @return zero on success or an error value
  */
-int plist_txt_nparse(plist_txt_t *txt, const char *str, size_t sz);
+int plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz);
+
+/**
+ * Retrieve the result object from the parse context. This will also
+ * reset the state of the parser so that it can be used to parse
+ * additional data
+ *
+ * @param  txt     context that was allocated with #plist_txt_new
+ * @param  plistpp result object reference location
+ * @return zero on success or an error value
+ */
+int plist_txt_result(plist_txt_t *txt, plist_t **plistpp);
 
 __END_DECLS
 

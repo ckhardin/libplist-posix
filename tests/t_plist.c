@@ -41,6 +41,7 @@
 #include <atf-c.h>
 
 #include "plist.h"
+#include "plist_txt.h"
 
 
 ATF_TC(t_plist_new);
@@ -281,10 +282,32 @@ ATF_TC_BODY(t_plist_array, tc)
 }
 
 
+ATF_TC(t_plist_txt);
+ATF_TC_HEAD(t_plist_txt, tc)
+{
+	atf_tc_set_md_var(tc, "descr", "plist txt parser");
+}
+ATF_TC_BODY(t_plist_txt, tc)
+{
+	plist_t *ptmp;
+	plist_txt_t *parse;
+
+	ATF_REQUIRE(plist_txt_new(&parse) == 0);
+	ATF_REQUIRE(plist_txt_parse(parse, "true", sizeof("true")) == 0);
+	ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
+
+	plist_dump(ptmp, stderr);
+	
+	plist_free(ptmp);
+	plist_txt_free(parse);
+}
+
+
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, t_plist_new);
 	ATF_TP_ADD_TC(tp, t_plist_dict);
 	ATF_TP_ADD_TC(tp, t_plist_array);
+	ATF_TP_ADD_TC(tp, t_plist_txt);
 	return atf_no_error();
 }

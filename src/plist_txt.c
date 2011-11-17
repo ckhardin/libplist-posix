@@ -89,24 +89,14 @@ plist_txt_free(plist_txt_t *txt)
 
 
 int
-plist_txt_parse(plist_txt_t *txt, const char *str)
-{
-	if (!txt || !str) {
-		return EINVAL;
-	}
-	return plist_txt_nparse(txt, str, strlen(str));
-}
-
-
-int
-plist_txt_nparse(plist_txt_t *txt, const char *str, size_t sz)
+plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 {
 	int err;
 	off_t o;
 	plist_t *ptmp;
-	const char *c;
+	const char *c, *str;
 
-	if (!txt || !str) {
+	if (!txt || !buf) {
 		return EINVAL;
 	}
 	if (sz == 0) {
@@ -115,7 +105,7 @@ plist_txt_nparse(plist_txt_t *txt, const char *str, size_t sz)
 	}
 
 	o = 0;
-	c = str;
+	c = str = buf;
  nextstate:
 	switch (txt->pt_state) {
 	default:
@@ -228,4 +218,31 @@ plist_txt_nparse(plist_txt_t *txt, const char *str, size_t sz)
 	}
 
 	return EAGAIN;
+}
+
+
+int
+plist_txt_result(plist_txt_t *txt, plist_t **plistpp)
+{
+	plist_t *ptmp;
+	enum plist_txt_state_e pstate;
+
+	if (!txt || !plistpp) {
+		return EINVAL;
+	}
+	ptmp = txt->pt_top;
+	pstate = txt->pt_state;
+
+	memset(txt, 0, sizeof(*txt));
+	txt->pt_state = PLIST_TXT_STATE_SEARCH;
+
+	/* return a result if the parser completed */
+	if (pstate == PLIST_TXT_STATE_DONE) {
+		*plistpp = ptmp;
+		return 0;
+	}
+
+	/* parser didn't complete */
+	plist_free(ptmp);
+	return ENOENT;
 }
