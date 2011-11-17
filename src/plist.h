@@ -245,6 +245,26 @@ int plist_dict_update(plist_t *dict, const plist_t *other);
  */
 int plist_array_new(plist_t **arraypp);
 
+/**
+ * Add an element to the end of the plist array
+ *
+ * @param  array reference to be changed
+ * @param  value object to be added to the array
+ * @return zero on success or an error value
+ */
+int plist_array_append(plist_t *array, plist_t *value);
+
+/**
+ * Insert an element at the given index of the array. It is an error
+ * to insert something outside the length of the array.
+ *
+ * @param  array reference to be changed
+ * @param  loc   numeric index location in the array
+ * @param  value object to be added to the array
+ * @return zero on success or an error value
+ */
+int plist_array_insert(plist_t *array, int loc, plist_t *value);
+
 
 /*
  * Simple Elements

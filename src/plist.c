@@ -132,6 +132,9 @@ plist_dict_set(plist_t *dict, const char *name, plist_t *value)
 	if (!dict || !name || !value) {
 		return EINVAL;
 	}
+	if (dict->p_elem != PLIST_DICT) {
+		return EACCES;
+	}
 	if (value->p_parent != NULL) {
 		return EPERM;
 	}
@@ -176,6 +179,9 @@ plist_dict_del(plist_t *dict, const char *name)
 	if (!dict || !name) {
 		return EINVAL;
 	}
+	if (dict->p_elem != PLIST_DICT) {
+		return EACCES;
+	}
 
 	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
 		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
@@ -197,6 +203,10 @@ plist_dict_haskey(const plist_t *dict, const char *name)
 	if (!dict || !name) {
 		return false;
 	}
+	if (dict->p_elem != PLIST_DICT) {
+		return EACCES;
+	}
+
 	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
 		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
 			return true;
@@ -216,6 +226,9 @@ plist_dict_update(plist_t *dict, const plist_t *other)
 
 	if (!dict || !other) {
 		return EINVAL;
+	}
+	if (dict->p_elem != PLIST_DICT) {
+		return EACCES;
 	}
 
 	TAILQ_INIT(&plist);
@@ -309,6 +322,61 @@ plist_array_new(plist_t **arraypp)
 	array->p_elem = PLIST_ARRAY;
 	TAILQ_INIT(&array->p_array.pa_elems);
 	*arraypp = array;
+	return 0;
+}
+
+
+int
+plist_array_append(plist_t *array, plist_t *value)
+{
+	if (!array || !value) {
+		return EINVAL;
+	}
+	if (array->p_elem != PLIST_ARRAY) {
+		return EACCES;
+	}
+	if (value->p_parent != NULL) {
+		return EPERM;
+	}
+
+	array->p_array.pa_numelems++;
+	TAILQ_INSERT_TAIL(&array->p_array.pa_elems, value, p_entry);
+	value->p_parent = array;
+	return 0;
+}
+
+
+int
+plist_array_insert(plist_t *array, int loc, plist_t *value)
+{
+	int i;
+	plist_t *ptmp;
+
+	if (!array || !value) {
+		return EINVAL;
+	}
+	if (array->p_elem != PLIST_ARRAY) {
+		return EACCES;
+	}
+	if ((loc < 0) || (loc > array->p_array.pa_numelems)) {
+		return ERANGE;
+	}
+	if (value->p_parent != NULL) {
+		return EPERM;
+	}
+
+	i = 0;
+	TAILQ_FOREACH(ptmp, &array->p_array.pa_elems, p_entry) {
+		if (i == loc) {
+			break;
+		}
+		i++;
+	}
+	assert(ptmp != NULL);
+	
+	array->p_array.pa_numelems++;
+	TAILQ_INSERT_BEFORE(ptmp, value, p_entry);
+	value->p_parent = array;
 	return 0;
 }
 
@@ -635,17 +703,20 @@ plist_copy(const plist_t *src, plist_t **dstpp)
 			switch (pcopyprev->p_elem) {
 			case PLIST_DICT:
 				pcopycur->p_parent = pcopyprev;
+				pcopyprev->p_dict.pd_numkeys++;
 				TAILQ_INSERT_TAIL(&pcopyprev->p_dict.pd_keys,
 						 pcopycur, p_entry);
 				break;
 			case PLIST_KEY:
 				pcopycur->p_parent = pcopyprev->p_parent;
+				pcopyprev->p_parent->p_dict.pd_numkeys++;
 				TAILQ_INSERT_TAIL(
 					&pcopyprev->p_parent->p_dict.pd_keys,
 					pcopycur, p_entry);
 				break;
 			case PLIST_ARRAY:
 				pcopycur->p_parent = pcopyprev;
+				pcopyprev->p_array.pa_numelems++;
 				TAILQ_INSERT_TAIL(&pcopyprev->p_array.pa_elems,
 						 pcopycur, p_entry);
 				break;

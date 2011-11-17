@@ -42,12 +42,12 @@
 
 #include "plist.h"
 
+
 ATF_TC(t_plist_new);
 ATF_TC_HEAD(t_plist_new, tc)
 {
 	atf_tc_set_md_var(tc, "descr", "plist new methods");
 }
-
 ATF_TC_BODY(t_plist_new, tc)
 {
 	plist_t *ptmp;
@@ -112,42 +112,179 @@ ATF_TC_BODY(t_plist_new, tc)
 	plist_free(ptmp);
 }
 
+
 ATF_TC(t_plist_dict);
 ATF_TC_HEAD(t_plist_dict, tc)
 {
 	atf_tc_set_md_var(tc, "descr", "plist dictionary");
 }
-
 ATF_TC_BODY(t_plist_dict, tc)
 {
+	struct tm tm;
 	plist_t *dict;
 	plist_t *ptmp;
+	const char *type;
+	const plist_t *pkey;
+	plist_iterator_t piter;
 
 	ATF_REQUIRE(plist_dict_new(&dict) == 0);
 
 	/* insert each type into the dictionary */
-	ATF_REQUIRE(plist_dict_haskey(dict, "dict") == false);
+	type = plist_etos(PLIST_DICT);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
 	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
-	ATF_REQUIRE(plist_dict_set(dict, "dict", ptmp) == 0);
-	ATF_REQUIRE(plist_dict_set(dict, "dict", ptmp) == EPERM);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
 	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
-	ATF_REQUIRE(plist_dict_set(dict, "dict", ptmp) == 0);
-	ATF_REQUIRE(plist_dict_haskey(dict, "dict") == true);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
 
-	ATF_REQUIRE(plist_dict_haskey(dict, "array") == false);
+	type = plist_etos(PLIST_ARRAY);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
 	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
-	ATF_REQUIRE(plist_dict_set(dict, "array", ptmp) == 0);
-	ATF_REQUIRE(plist_dict_set(dict, "array", ptmp) == EPERM);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
 	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
-	ATF_REQUIRE(plist_dict_set(dict, "array", ptmp) == 0);
-	ATF_REQUIRE(plist_dict_haskey(dict, "array") == true);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
 
+	type = plist_etos(PLIST_DATA);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_data_new(&ptmp,
+				   "DATAdata", sizeof("DATAdata")) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
+	ATF_REQUIRE(plist_data_new(&ptmp,
+				   "DATAdata", sizeof("DATAdata")) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
+
+	type = plist_etos(PLIST_DATE);
+	memset(&tm, 0, sizeof(struct tm));
+	strptime("1911-11-11 11:11:11", "%Y-%m-%d %H:%M:%S", &tm);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_date_new(&ptmp, &tm) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
+	ATF_REQUIRE(plist_date_new(&ptmp, &tm) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
+
+	type = plist_etos(PLIST_STRING);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_string_new(&ptmp, "STRING") == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
+	ATF_REQUIRE(plist_string_new(&ptmp, "STRING") == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
+
+	type = plist_etos(PLIST_INTEGER);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_integer_new(&ptmp, 1) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
+	ATF_REQUIRE(plist_integer_new(&ptmp, -1) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
+
+	type = plist_etos(PLIST_REAL);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_real_new(&ptmp, 1.01) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
+	ATF_REQUIRE(plist_real_new(&ptmp, -1.01) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
+
+	type = plist_etos(PLIST_BOOLEAN);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_boolean_new(&ptmp, true) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == EPERM);
+	ATF_REQUIRE(plist_boolean_new(&ptmp, false) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == true);
+
+	PLIST_FOREACH(pkey, dict, &piter) {
+		ATF_REQUIRE(pkey->p_elem == PLIST_KEY);
+		ATF_REQUIRE_EQ(plist_stoe(pkey->p_key.pk_name),
+			       pkey->p_key.pk_value->p_elem);
+	}
 	plist_dump(dict, stderr);
+
+	/* test a remove and copy */
+	type = plist_etos(PLIST_DICT);
+	ATF_REQUIRE(plist_dict_del(dict, type) == 0);
+	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
+	ATF_REQUIRE(plist_copy(dict, &ptmp) == 0);
+	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	plist_dump(dict, stderr);
+
+	plist_free(dict);
 }
+
+
+ATF_TC(t_plist_array);
+ATF_TC_HEAD(t_plist_array, tc)
+{
+	atf_tc_set_md_var(tc, "descr", "plist array");
+}
+ATF_TC_BODY(t_plist_array, tc)
+{
+	struct tm tm;
+	plist_t *array;
+	plist_t *ptmp;
+	const plist_t *pelem;
+	plist_iterator_t piter;
+
+	ATF_REQUIRE(plist_array_new(&array) == 0);
+
+	/* insert each type into the array */
+	ATF_REQUIRE(plist_dict_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	ATF_REQUIRE(plist_array_new(&ptmp) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	ATF_REQUIRE(plist_data_new(&ptmp, "ArrayData",
+				   sizeof("ArrayData")) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	memset(&tm, 0, sizeof(struct tm));
+	strptime("1912-12-12 12:12:12", "%Y-%m-%d %H:%M:%S", &tm);
+	ATF_REQUIRE(plist_date_new(&ptmp, &tm) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	ATF_REQUIRE(plist_string_new(&ptmp, "ArrayString") == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	ATF_REQUIRE(plist_integer_new(&ptmp, INT32_MAX) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	ATF_REQUIRE(plist_real_new(&ptmp, 2.0202) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	ATF_REQUIRE(plist_boolean_new(&ptmp, true) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+
+	PLIST_FOREACH(pelem, array, &piter) {
+		plist_dump(pelem, stderr);
+	}
+
+	/* test a copy */
+	ATF_REQUIRE(plist_copy(array, &ptmp) == 0);
+	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+	plist_dump(array, stderr);
+
+	plist_free(array);
+}
+
 
 ATF_TP_ADD_TCS(tp)
 {
 	ATF_TP_ADD_TC(tp, t_plist_new);
 	ATF_TP_ADD_TC(tp, t_plist_dict);
+	ATF_TP_ADD_TC(tp, t_plist_array);
 	return atf_no_error();
 }
