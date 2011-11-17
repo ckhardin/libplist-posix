@@ -116,7 +116,7 @@ plist_dict_new(plist_t **dictpp)
 	memset(dict, 0, sizeof(*dict));
 
 	dict->p_elem = PLIST_DICT;
-	LIST_INIT(&dict->p_dict.pd_keys);
+	TAILQ_INIT(&dict->p_dict.pd_keys);
 	*dictpp = dict;
 	return 0;
 }
@@ -146,7 +146,7 @@ plist_dict_set(plist_t *dict, const char *name, plist_t *value)
 	/* attempt to delete an existing key here, since the allocation
 	 * has already occurred for the new key
 	 */
-	LIST_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
+	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
 		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
 			break;
 		}
@@ -162,7 +162,7 @@ plist_dict_set(plist_t *dict, const char *name, plist_t *value)
 	value->p_parent = key;
 
 	dict->p_dict.pd_numkeys++;
-	LIST_INSERT_HEAD(&dict->p_dict.pd_keys, key, p_entry);
+	TAILQ_INSERT_TAIL(&dict->p_dict.pd_keys, key, p_entry);
 	key->p_parent = dict;
 	return 0;
 }
@@ -177,7 +177,7 @@ plist_dict_del(plist_t *dict, const char *name)
 		return EINVAL;
 	}
 
-	LIST_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
+	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
 		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
 			break;
 		}
@@ -197,7 +197,7 @@ plist_dict_haskey(const plist_t *dict, const char *name)
 	if (!dict || !name) {
 		return false;
 	}
-	LIST_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
+	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
 		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
 			return true;
 		}
@@ -212,30 +212,30 @@ plist_dict_update(plist_t *dict, const plist_t *other)
 	int err;
 	plist_t *ptmp;
 	plist_t *pcopy;
-	LIST_HEAD(, plist_s) plist;
+	TAILQ_HEAD(, plist_s) plist;
 
 	if (!dict || !other) {
 		return EINVAL;
 	}
 
-	LIST_INIT(&plist);
+	TAILQ_INIT(&plist);
 	if (other->p_elem == PLIST_DICT) {
-		LIST_FOREACH(ptmp, &other->p_dict.pd_keys, p_entry) {
+		TAILQ_FOREACH(ptmp, &other->p_dict.pd_keys, p_entry) {
 			err = plist_copy(ptmp, &pcopy);
 			if (err != 0) {
 				goto bail;
 			}
-			LIST_INSERT_HEAD(&plist, pcopy, p_entry);
+			TAILQ_INSERT_TAIL(&plist, pcopy, p_entry);
 		}
 
-		while ((pcopy = LIST_FIRST(&plist)) != NULL) {
-			LIST_REMOVE(pcopy, p_entry);
+		while ((pcopy = TAILQ_FIRST(&plist)) != NULL) {
+			TAILQ_REMOVE(&plist, pcopy, p_entry);
 
 			plist_dict_del(dict, pcopy->p_key.pk_name);
 
 			dict->p_dict.pd_numkeys++;
-			LIST_INSERT_HEAD(&dict->p_dict.pd_keys,
-					 pcopy, p_entry);
+			TAILQ_INSERT_TAIL(&dict->p_dict.pd_keys,
+					  pcopy, p_entry);
 		}
 		return 0;
 	}
@@ -248,11 +248,11 @@ plist_dict_update(plist_t *dict, const plist_t *other)
 		plist_dict_del(dict, pcopy->p_key.pk_name);
 
 		dict->p_dict.pd_numkeys++;
-		LIST_INSERT_HEAD(&dict->p_dict.pd_keys, pcopy, p_entry);
+		TAILQ_INSERT_TAIL(&dict->p_dict.pd_keys, pcopy, p_entry);
 		return 0;
 	}
 	if (other->p_elem == PLIST_ARRAY) {
-		LIST_FOREACH(ptmp, &other->p_array.pa_elems, p_entry) {
+		TAILQ_FOREACH(ptmp, &other->p_array.pa_elems, p_entry) {
 			if (ptmp->p_elem != PLIST_KEY) {
 				/* can only copy array of keys */
 				err = EPERM;
@@ -263,25 +263,25 @@ plist_dict_update(plist_t *dict, const plist_t *other)
 			if (err != 0) {
 				goto bail;
 			}
-			LIST_INSERT_HEAD(&plist, pcopy, p_entry);
+			TAILQ_INSERT_TAIL(&plist, pcopy, p_entry);
 		}
 
-		while ((pcopy = LIST_FIRST(&plist)) != NULL) {
-			LIST_REMOVE(pcopy, p_entry);
+		while ((pcopy = TAILQ_FIRST(&plist)) != NULL) {
+			TAILQ_REMOVE(&plist, pcopy, p_entry);
 
 			plist_dict_del(dict, pcopy->p_key.pk_name);
 
 			dict->p_dict.pd_numkeys++;
-			LIST_INSERT_HEAD(&dict->p_dict.pd_keys,
-					 pcopy, p_entry);
+			TAILQ_INSERT_TAIL(&dict->p_dict.pd_keys,
+					  pcopy, p_entry);
 		}
 		return 0;
 	}
 
 	err = EPERM;
  bail:
-	while ((ptmp = LIST_FIRST(&plist)) != NULL) {
-		LIST_REMOVE(ptmp, p_entry);
+	while ((ptmp = TAILQ_FIRST(&plist)) != NULL) {
+		TAILQ_REMOVE(&plist, ptmp, p_entry);
 		plist_free(ptmp);
 	}
 	return err;
@@ -307,7 +307,7 @@ plist_array_new(plist_t **arraypp)
 	memset(array, 0, sizeof(*array));
 
 	array->p_elem = PLIST_ARRAY;
-	LIST_INIT(&array->p_array.pa_elems);
+	TAILQ_INIT(&array->p_array.pa_elems);
 	*arraypp = array;
 	return 0;
 }
@@ -584,7 +584,7 @@ _plist_copyelem(const plist_t *s, plist_t **d)
 			goto bail;
 		}
 		memset(key, 0, sizeof(*key));
-		
+
 		key->p_elem = PLIST_KEY;
 		key->p_key.pk_name = (char *) &key[1];
 		memcpy(key->p_key.pk_name, s->p_key.pk_name, namesz);
@@ -632,18 +632,18 @@ plist_copy(const plist_t *src, plist_t **dstpp)
 			switch (pcopyprev->p_elem) {
 			case PLIST_DICT:
 				pcopycur->p_parent = pcopyprev;
-				LIST_INSERT_HEAD(&pcopyprev->p_dict.pd_keys,
+				TAILQ_INSERT_TAIL(&pcopyprev->p_dict.pd_keys,
 						 pcopycur, p_entry);
 				break;
 			case PLIST_KEY:
 				pcopycur->p_parent = pcopyprev->p_parent;
-				LIST_INSERT_HEAD(
+				TAILQ_INSERT_TAIL(
 					&pcopyprev->p_parent->p_dict.pd_keys,
 					pcopycur, p_entry);
 				break;
 			case PLIST_ARRAY:
 				pcopycur->p_parent = pcopyprev;
-				LIST_INSERT_HEAD(&pcopyprev->p_array.pa_elems,
+				TAILQ_INSERT_TAIL(&pcopyprev->p_array.pa_elems,
 						 pcopycur, p_entry);
 				break;
 			default:
@@ -664,13 +664,13 @@ plist_copy(const plist_t *src, plist_t **dstpp)
 
 		switch (pnext->p_elem) {
 		case PLIST_DICT:
-			pnext = LIST_FIRST(&pnext->p_dict.pd_keys);
+			pnext = TAILQ_FIRST(&pnext->p_dict.pd_keys);
 			if (pnext != NULL) {
 				continue;
 			}
 			break;
 		case PLIST_ARRAY:
-			pnext = LIST_FIRST(&pnext->p_array.pa_elems);
+			pnext = TAILQ_FIRST(&pnext->p_array.pa_elems);
 			if (pnext != NULL) {
 				continue;
 			}
@@ -694,7 +694,7 @@ plist_copy(const plist_t *src, plist_t **dstpp)
 			}
 			if (pnext->p_elem == PLIST_KEY) {
 				pcopyprev = pcopyprev->p_parent;
-				pnext = LIST_NEXT(pnext, p_entry);
+				pnext = TAILQ_NEXT(pnext, p_entry);
 				if (pnext != NULL) {
 					break;
 				}
@@ -703,7 +703,7 @@ plist_copy(const plist_t *src, plist_t **dstpp)
 			}
 			if (pnext->p_elem == PLIST_ARRAY) {
 				pcopyprev = pcopyprev->p_parent;
-				pnext = LIST_NEXT(pcur, p_entry);
+				pnext = TAILQ_NEXT(pcur, p_entry);
 				if (pnext != NULL) {
 					break;
 				}
@@ -732,7 +732,7 @@ void
 plist_free(plist_t *plist)
 {
 	plist_t *ptmp;
-	LIST_HEAD(, plist_s) pfree;
+	TAILQ_HEAD(, plist_s) pfree;
 
 	if (!plist) {
 		return;
@@ -744,13 +744,13 @@ plist_free(plist_t *plist)
 		if (ptmp->p_elem == PLIST_DICT) {
 			assert(ptmp->p_dict.pd_numkeys > 0);
 			ptmp->p_dict.pd_numkeys--;
-			LIST_REMOVE(plist, p_entry);
+			TAILQ_REMOVE(&ptmp->p_dict.pd_keys, plist, p_entry);
 			break;
 		}
 		if (ptmp->p_elem == PLIST_ARRAY) {
 			assert(ptmp->p_array.pa_numelems > 0);
 			ptmp->p_array.pa_numelems--;
-			LIST_REMOVE(plist, p_entry);
+			TAILQ_REMOVE(&ptmp->p_array.pa_elems, plist, p_entry);
 			break;
 		}
 		if (ptmp->p_elem == PLIST_KEY) {
@@ -767,44 +767,46 @@ plist_free(plist_t *plist)
 	}
 
 	/* just use a list of things to free */
-	LIST_INIT(&pfree);
-	LIST_INSERT_HEAD(&pfree, plist, p_entry);
+	TAILQ_INIT(&pfree);
+	TAILQ_INSERT_TAIL(&pfree, plist, p_entry);
 
-	while ((plist = LIST_FIRST(&pfree)) != NULL) {
-		LIST_REMOVE(plist, p_entry);
+	while ((plist = TAILQ_FIRST(&pfree)) != NULL) {
+		TAILQ_REMOVE(&pfree, plist, p_entry);
 
 		/* insert children of the current element into the free list */
 		switch (plist->p_elem) {
 		case PLIST_DICT:
 			for (;;) {
-				ptmp = LIST_FIRST(&plist->p_dict.pd_keys);
+				ptmp = TAILQ_FIRST(&plist->p_dict.pd_keys);
 				if (ptmp == NULL) {
 					break;
 				}
 
 				plist->p_dict.pd_numkeys--;
-				LIST_REMOVE(ptmp, p_entry);
-				LIST_INSERT_HEAD(&pfree, ptmp, p_entry);
+				TAILQ_REMOVE(&plist->p_dict.pd_keys,
+					     ptmp, p_entry);
+				TAILQ_INSERT_TAIL(&pfree, ptmp, p_entry);
 			}
 			assert(plist->p_dict.pd_numkeys == 0);
 			break;
 		case PLIST_KEY:
 			if (plist->p_key.pk_value != NULL) {
 				ptmp = plist->p_key.pk_value;
-				LIST_INSERT_HEAD(&pfree, ptmp, p_entry);
+				TAILQ_INSERT_TAIL(&pfree, ptmp, p_entry);
 				plist->p_key.pk_value = NULL;
 			}
 			break;
 		case PLIST_ARRAY:
 			for (;;) {
-				ptmp = LIST_FIRST(&plist->p_array.pa_elems);
+				ptmp = TAILQ_FIRST(&plist->p_array.pa_elems);
 				if (ptmp == NULL) {
 					break;
 				}
 
 				plist->p_array.pa_numelems--;
-				LIST_REMOVE(ptmp, p_entry);
-				LIST_INSERT_HEAD(&pfree, ptmp, p_entry);
+				TAILQ_REMOVE(&plist->p_array.pa_elems,
+					     ptmp, p_entry);
+				TAILQ_INSERT_TAIL(&pfree, ptmp, p_entry);
 			}
 			assert(plist->p_array.pa_numelems == 0);
 			break;
@@ -841,12 +843,12 @@ plist_first(const plist_t *plist, plist_iterator_t *pi)
 
 	switch (plist->p_elem) {
 	case PLIST_DICT:
-		pvar = LIST_FIRST(&plist->p_dict.pd_keys);
+		pvar = TAILQ_FIRST(&plist->p_dict.pd_keys);
 		pi->pi_elem = plist->p_elem;
 		pi->pi_opaque = pvar;
 		return pvar;
 	case PLIST_ARRAY:
-		pvar = LIST_FIRST(&plist->p_array.pa_elems);
+		pvar = TAILQ_FIRST(&plist->p_array.pa_elems);
 		pi->pi_elem = plist->p_elem;
 		pi->pi_opaque = pvar;
 		return pvar;
@@ -871,11 +873,11 @@ plist_next(plist_iterator_t *pi)
 
 	switch (pi->pi_elem) {
 	case PLIST_DICT:
-		pvar = LIST_NEXT(pvar, p_entry);
+		pvar = TAILQ_NEXT(pvar, p_entry);
 		pi->pi_opaque = pvar;
 		return pvar;
 	case PLIST_ARRAY:
-		pvar = LIST_NEXT(pvar, p_entry);
+		pvar = TAILQ_NEXT(pvar, p_entry);
 		pi->pi_opaque = pvar;
 		return pvar;
 	default:
@@ -952,7 +954,7 @@ plist_dump(const plist_t *plist, FILE *fp)
 		switch (pcur->p_elem) {
 		case PLIST_DICT:
 			fprintf(fp, "\n");
-			pnext = LIST_FIRST(&pcur->p_dict.pd_keys);
+			pnext = TAILQ_FIRST(&pcur->p_dict.pd_keys);
 			if (pnext != NULL) {
 				indent++;
 				continue;
@@ -967,7 +969,7 @@ plist_dump(const plist_t *plist, FILE *fp)
 			break;
 		case PLIST_ARRAY:
 			fprintf(fp, "\n");
-			pnext = LIST_FIRST(&pcur->p_array.pa_elems);
+			pnext = TAILQ_FIRST(&pcur->p_array.pa_elems);
 			if (pnext != NULL) {
 				indent++;
 				continue;
@@ -1016,14 +1018,14 @@ plist_dump(const plist_t *plist, FILE *fp)
 			}
 			if (pnext->p_elem == PLIST_KEY) {
 				pcur = pnext;
-				pnext = LIST_NEXT(pcur, p_entry);
+				pnext = TAILQ_NEXT(pcur, p_entry);
 				if (pnext != NULL) {
 					break;
 				}
 				continue;
 			}
 			if (pnext->p_elem == PLIST_ARRAY) {
-				pnext = LIST_NEXT(pcur, p_entry);
+				pnext = TAILQ_NEXT(pcur, p_entry);
 				if (pnext != NULL) {
 					break;
 				}

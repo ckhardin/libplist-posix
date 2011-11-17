@@ -22,21 +22,21 @@ pkgtestsdir = $(testsdir)/$(PACKAGE)
 installcheck-local: installcheck-atf
 .PHONY: installcheck-atf
 installcheck-atf:
-        logfile=$$(pwd)/installcheck.log; \
-        fifofile=$$(pwd)/installcheck.fifo; \
-        cd $(pkgtestsdir); \
-        rm -f $${fifofile}; \
-        mkfifo $${fifofile}; \
-        cat $${fifofile} | tee $${logfile} | \
+	logfile=$$(pwd)/installcheck.log; \
+	fifofile=$$(pwd)/installcheck.fifo; \
+	cd $(pkgtestsdir); \
+	rm -f $${fifofile}; \
+	mkfifo $${fifofile}; \
+	cat $${fifofile} | tee $${logfile} | \
 		$(TESTS_ENVIRONMENT) $(ATFREPORT) & \
-        	$(TESTS_ENVIRONMENT) $(ATFRUN) >>$${fifofile}; \
-        res=$${?}; \
-        wait; \
-        rm $${fifofile}; \
-        echo; \
-        echo "The verbatim output of atf-run has been saved to" \
-             "installcheck.log; exit was $${res}"; \
-        test $${res} -eq 0
+		$(TESTS_ENVIRONMENT) $(ATFRUN) >>$${fifofile}; \
+	res=$${?}; \
+	wait; \
+	rm $${fifofile}; \
+	echo; \
+	echo "The verbatim output of atf-run has been saved to" \
+	     "installcheck.log; exit was $${res}"; \
+	test $${res} -eq 0
 CLEANFILES += installcheck.fifo installcheck.log
 
 pkgtests_DATA = Atffile

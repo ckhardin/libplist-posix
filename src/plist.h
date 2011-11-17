@@ -80,7 +80,7 @@ enum plist_elem_e {
 
 struct plist_dict_s {
 	int pd_numkeys;
-	LIST_HEAD(, plist_s) pd_keys;
+	TAILQ_HEAD(, plist_s) pd_keys;
 };
 
 struct plist_key_s {
@@ -90,7 +90,7 @@ struct plist_key_s {
 
 struct plist_array_s {
 	int pa_numelems;
-	LIST_HEAD(, plist_s) pa_elems;
+	TAILQ_HEAD(, plist_s) pa_elems;
 };
 
 struct plist_data_s {
@@ -124,7 +124,7 @@ struct plist_s {
 
 	/* linkage for the tree (arrays and dictionaries) */
 	struct plist_s *p_parent;
-	LIST_ENTRY(plist_s) p_entry;
+	TAILQ_ENTRY(plist_s) p_entry;
 
 	union {
 		struct plist_dict_s pu_dict;
