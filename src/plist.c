@@ -411,15 +411,18 @@ plist_format_new(plist_t **stringpp, const char *fmt, ...)
 int
 plist_vformat_new(plist_t **stringpp, const char *fmt, va_list ap)
 {
-	plist_t *string;
 	size_t sz;
+	va_list apcopy;
+	char scratch[1];
+	plist_t *string;
 
 	if (!stringpp || !fmt) {
 		return EINVAL;
 	}
 
 	sz = sizeof(*string);
-	sz += vsnprintf(NULL, 0, fmt, ap);
+	va_copy(apcopy, ap);
+	sz += vsnprintf(scratch, sizeof(scratch), fmt, apcopy) + 1;
 	string = malloc(sz);
 	if (string == NULL) {
 		return ENOMEM;
