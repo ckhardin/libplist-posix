@@ -236,7 +236,7 @@ ATF_TC_BODY(t_plist_array, tc)
 	struct tm tm;
 	plist_t *array;
 	plist_t *ptmp;
-	const plist_t *pelem;
+	plist_t *pelem;
 	plist_iterator_t piter;
 
 	ATF_REQUIRE(plist_array_new(&array) == 0);
@@ -269,14 +269,20 @@ ATF_TC_BODY(t_plist_array, tc)
 	ATF_REQUIRE(plist_boolean_new(&ptmp, true) == 0);
 	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
 
-	PLIST_FOREACH(pelem, array, &piter) {
-		plist_dump(pelem, stderr);
-	}
-
 	/* test a copy */
 	ATF_REQUIRE(plist_copy(array, &ptmp) == 0);
 	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
 	plist_dump(array, stderr);
+
+	/* test a pop */
+	ATF_REQUIRE(plist_array_pop(array, 1, &ptmp) == 0);
+	ATF_REQUIRE(plist_array_insert(array, 0, ptmp) == 0);
+	plist_dump(array, stderr);
+
+	PLIST_FOREACH(pelem, array, &piter) {
+		ATF_REQUIRE(plist_array_del(array, 0) == 0);
+		plist_dump(array, stderr);
+	}
 
 	plist_free(array);
 }

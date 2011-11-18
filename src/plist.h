@@ -203,6 +203,17 @@ int plist_dict_new(plist_t **dictpp);
 int plist_dict_set(plist_t *dict, const char *name, plist_t *value);
 
 /**
+ * Remove a named entry from the given dictionary. It is an
+ * error to remove an entry that does not exist.
+ *
+ * @param  array reference to be changed
+ * @param  loc   numbec index location in the array
+ * @param  plistpp result location of the object on success
+ * @return zero on success or an error value
+ */
+int plist_dict_pop(plist_t *array, const char *name, plist_t **plistpp);
+
+/**
  * Remove the name entry in the dictionary and free the resources associated
  * with an entry.
  *
@@ -264,6 +275,27 @@ int plist_array_append(plist_t *array, plist_t *value);
  * @return zero on success or an error value
  */
 int plist_array_insert(plist_t *array, int loc, plist_t *value);
+
+/**
+ * Remove an element from the given index of the array. It is an
+ * error to remove something outside the length of the array.
+ *
+ * @param  array reference to be changed
+ * @param  loc   numbec index location in the array
+ * @param  plistpp result location of the object on success
+ * @return zero on success or an error value
+ */
+int plist_array_pop(plist_t *array, int loc, plist_t **plistpp);
+
+/**
+ * Delete an element from the given index of the array. It is an
+ * error to delete something outside the length of the array.
+ *
+ * @param  array reference to be changed
+ * @param  loc   numbec index location in the array
+ * @return zero on success or an error value
+ */
+int plist_array_del(plist_t *array, int loc);
 
 
 /*
@@ -385,7 +417,7 @@ void plist_free(plist_t *plist);
  * @param  pi     an iterator reference to be setup
  * @return reference to the first element or null
  */
-const plist_t *plist_first(const plist_t *plist, plist_iterator_t *pi);
+plist_t *plist_first(const plist_t *plist, plist_iterator_t *pi);
 
 /**
  * Retrieve the next element using the iterator structure.
@@ -393,7 +425,7 @@ const plist_t *plist_first(const plist_t *plist, plist_iterator_t *pi);
  * @param  pi     an iterator reference already setup with #plist_first
  * @return reference to the next element or null
  */
-const plist_t *plist_next(plist_iterator_t *pi);
+plist_t *plist_next(plist_iterator_t *pi);
 
 /* macros modeled after queue.h */
 #define PLIST_FIRST(_plist, _pi)  plist_first((_plist), (_pi))
