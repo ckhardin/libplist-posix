@@ -67,7 +67,7 @@ plist_txt_new(plist_txt_t **txtpp)
 	}
 	memset(txt, 0, sizeof(*txt));
 
-	txt->pt_state = PLIST_TXT_STATE_SEARCH;
+	txt->pt_state = PLIST_TXT_STATE_SCAN;
 	*txtpp = txt;
 	return 0;
 }
@@ -84,6 +84,86 @@ plist_txt_free(plist_txt_t *txt)
 		plist_free(txt->pt_top);
 	}
 	free(txt);
+	return;
+}
+
+
+static void
+_plist_txt_push(plist_txt_t *txt, plist_t *value)
+{
+	if (txt->pt_depth == 0) {
+		txt->pt_top = value;
+		txt->pt_cur = value;
+		txt->pt_depth++;
+		txt->pt_state = PLIST_TXT_STATE_SCAN;
+		return;
+	}
+	if (txt->pt_cur == NULL) {
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+
+	switch (txt->pt_cur->p_elem) {
+	case PLIST_KEY:
+		plist_dict_set(txt->pt_cur->p_parent,
+			       txt->pt_cur->p_key.pk_name, value);
+		break;
+	case PLIST_ARRAY:
+		plist_array_append(txt->pt_cur, value);
+		break;
+	default:
+		/* invalid parent */
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+	txt->pt_cur = value;
+	txt->pt_depth++;
+	txt->pt_state = PLIST_TXT_STATE_SCAN;
+	return;
+}
+
+static void
+_plist_txt_next(plist_txt_t *txt, plist_t *value)
+{
+	if (txt->pt_depth == 0) {
+		txt->pt_top = value;
+		txt->pt_cur = value;
+		txt->pt_state = PLIST_TXT_STATE_SCAN;
+		return;
+	}
+	if (txt->pt_cur == NULL) {
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+
+	/* insert into the current container */
+	switch (txt->pt_cur->p_elem) {
+	case PLIST_KEY:
+		plist_dict_set(txt->pt_cur->p_parent,
+			       txt->pt_cur->p_key.pk_name, value);
+		break;
+	case PLIST_ARRAY:
+		plist_array_append(txt->pt_cur, value);
+		break;
+	default:
+		/* invalid parent */
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+	txt->pt_state = PLIST_TXT_STATE_SCAN;
+	return;
+}
+
+static void
+_plist_txt_pop(plist_txt_t *txt)
+{
+	if (txt->pt_depth <= 0 || txt->pt_cur == NULL) {
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+	txt->pt_depth--;
+	txt->pt_cur = txt->pt_cur->p_parent;
+	txt->pt_state = PLIST_TXT_STATE_SCAN;
 	return;
 }
 
@@ -115,7 +195,7 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 	case PLIST_TXT_STATE_DONE:
 		return 0;
 
-	case PLIST_TXT_STATE_SEARCH:
+	case PLIST_TXT_STATE_SCAN:
 		/* eat whitespace */
 		while (*c != '\0' && isblank(*c)) {
 			c++; o++;
@@ -127,10 +207,16 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		case '\0':
 			return 0; /* hit a nil */
 		case '{':
-			txt->pt_state = PLIST_TXT_STATE_DICT_BEGIN;
+			txt->pt_state = PLIST_TXT_STATE_DICT_PUSH;
+			goto nextstate;
+		case '}':
+			txt->pt_state = PLIST_TXT_STATE_DICT_POP;
 			goto nextstate;
 		case '(':
-			txt->pt_state = PLIST_TXT_STATE_ARRAY_BEGIN;
+			txt->pt_state = PLIST_TXT_STATE_ARRAY_PUSH;
+			goto nextstate;
+		case ')':
+			txt->pt_state = PLIST_TXT_STATE_ARRAY_POP;
 			goto nextstate;
 		case '<':
 			txt->pt_state = PLIST_TXT_STATE_DATA_BEGIN;
@@ -157,8 +243,27 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return EINVAL;
 
-	case PLIST_TXT_STATE_DICT_BEGIN:
-		return ENOSYS;
+	case PLIST_TXT_STATE_DICT_PUSH:
+		err = plist_dict_new(&ptmp);
+		if (err != 0) {
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return err;
+		}
+		_plist_txt_push(txt, ptmp);
+		goto nextstate;
+
+	case PLIST_TXT_STATE_ARRAY_PUSH:
+		err = plist_array_new(&ptmp);
+		if (err != 0) {
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return err;
+		}
+		_plist_txt_push(txt, ptmp);
+		goto nextstate;
+
+	case PLIST_TXT_STATE_ARRAY_POP:
+		_plist_txt_pop(txt);
+		goto nextstate;
 
 	case PLIST_TXT_STATE_TRUE_BEGIN:
 		txt->pt_true.ptt_buf[0] = tolower(*c);
@@ -192,29 +297,8 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			txt->pt_state = PLIST_TXT_STATE_ERROR;
 			return err;
 		}
-		if (txt->pt_depth == 0) {
-			txt->pt_top = ptmp;
-			txt->pt_state = PLIST_TXT_STATE_DONE;
-			return 0;
-		}
-
-		/* insert into the current container */
-		if (txt->pt_cur->p_elem == PLIST_KEY) {
-			txt->pt_cur->p_key.pk_value = ptmp;
-			ptmp->p_parent = txt->pt_cur;
-			txt->pt_state = PLIST_TXT_STATE_DICT_END;
-			goto nextstate;
-		}
-		if (txt->pt_cur->p_elem == PLIST_ARRAY) {
-			TAILQ_INSERT_TAIL(&txt->pt_cur->p_array.pa_elems,
-					  ptmp, p_entry);
-			txt->pt_cur->p_array.pa_numelems++;
-			txt->pt_state = PLIST_TXT_STATE_DICT_END;
-			goto nextstate;
-		}
-		/* this really shouldn't be possible */
-		txt->pt_state = PLIST_TXT_STATE_ERROR;
-		return EINVAL;
+		_plist_txt_next(txt, ptmp);
+		goto nextstate;
 	}
 
 	return EAGAIN;
@@ -234,7 +318,7 @@ plist_txt_result(plist_txt_t *txt, plist_t **plistpp)
 	pstate = txt->pt_state;
 
 	memset(txt, 0, sizeof(*txt));
-	txt->pt_state = PLIST_TXT_STATE_SEARCH;
+	txt->pt_state = PLIST_TXT_STATE_SCAN;
 
 	/* return a result if the parser completed */
 	if (pstate == PLIST_TXT_STATE_DONE) {

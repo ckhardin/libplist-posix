@@ -43,6 +43,8 @@
 
 #include "plist.h"
 
+#define INITRET(_pp)  if ((_pp) != NULL) { *(_pp) = NULL; }
+
 
 struct plist_nv_s {
 	const char *pnv_name;
@@ -103,6 +105,8 @@ plist_etos(enum plist_elem_e elem)
 int
 plist_dict_new(plist_t **dictpp)
 {
+	INITRET(dictpp);
+
 	plist_t *dict;
 
 	if (!dictpp) {
@@ -174,6 +178,8 @@ plist_dict_set(plist_t *dict, const char *name, plist_t *value)
 int
 plist_dict_pop(plist_t *dict, const char *name, plist_t **plistpp)
 {
+	INITRET(plistpp);
+
 	plist_t *ptmp;
 
 	if (!dict || !name || !plistpp) {
@@ -336,6 +342,8 @@ plist_dict_update(plist_t *dict, const plist_t *other)
 int
 plist_array_new(plist_t **arraypp)
 {
+	INITRET(arraypp);
+
 	plist_t *array;
 
 	if (!arraypp) {
@@ -421,6 +429,8 @@ plist_array_insert(plist_t *array, int loc, plist_t *value)
 int
 plist_array_pop(plist_t *array, int loc, plist_t **plistpp)
 {
+	INITRET(plistpp);
+
 	int i;
 	plist_t *ptmp;
 
@@ -487,6 +497,8 @@ plist_array_del(plist_t *array, int loc)
 int
 plist_data_new(plist_t **datapp, const void *buf, size_t bufsz)
 {
+	INITRET(datapp);
+
 	plist_t *data;
 	size_t sz;
 
@@ -514,6 +526,8 @@ plist_data_new(plist_t **datapp, const void *buf, size_t bufsz)
 int
 plist_date_new(plist_t **datepp, const struct tm *tm)
 {
+	INITRET(datepp);
+
 	plist_t *date;
 
 	if (!datepp || !tm) {
@@ -536,6 +550,8 @@ plist_date_new(plist_t **datepp, const struct tm *tm)
 int
 plist_string_new(plist_t **stringpp, const char *s)
 {
+	INITRET(stringpp);
+
 	plist_t *string;
 	size_t sz;
 
@@ -565,10 +581,6 @@ plist_format_new(plist_t **stringpp, const char *fmt, ...)
 	int err;
 	va_list ap;
 
-	if (!stringpp || !fmt) {
-		return EINVAL;
-	}
-
 	va_start(ap, fmt);
 	err = plist_vformat_new(stringpp, fmt, ap);
 	va_end(ap);
@@ -579,6 +591,8 @@ plist_format_new(plist_t **stringpp, const char *fmt, ...)
 int
 plist_vformat_new(plist_t **stringpp, const char *fmt, va_list ap)
 {
+	INITRET(stringpp);
+
 	size_t sz;
 	va_list apcopy;
 	char scratch[1];
@@ -608,6 +622,8 @@ plist_vformat_new(plist_t **stringpp, const char *fmt, va_list ap)
 int
 plist_integer_new(plist_t **integerpp, int num)
 {
+	INITRET(integerpp);
+
 	plist_t *integer;
 
 	if (!integerpp) {
@@ -630,6 +646,8 @@ plist_integer_new(plist_t **integerpp, int num)
 int
 plist_real_new(plist_t **realpp, double num)
 {
+	INITRET(realpp);
+
 	plist_t *real;
 
 	if (!realpp) {
@@ -652,6 +670,8 @@ plist_real_new(plist_t **realpp, double num)
 int
 plist_boolean_new(plist_t **booleanpp, bool flag)
 {
+	INITRET(booleanpp);
+
 	plist_t *boolean;
 
 	if (!booleanpp) {
@@ -774,6 +794,8 @@ _plist_copyelem(const plist_t *s, plist_t **d)
 int
 plist_copy(const plist_t *src, plist_t **dstpp)
 {
+	INITRET(dstpp);
+
 	int err;
 	plist_t *dst;
 	plist_t *pcopycur;
