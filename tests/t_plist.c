@@ -293,19 +293,32 @@ ATF_TC_HEAD(t_plist_txt, tc)
 {
 	atf_tc_set_md_var(tc, "descr", "plist txt parser");
 }
+
+const char *txtgood[] = {
+	"true",
+	"( true)",
+	"(false, true)",
+	"{ \"flag\" = true }",
+};
+#define N_TXTGOOD (sizeof(txtgood)/sizeof(txtgood[0]))
+
 ATF_TC_BODY(t_plist_txt, tc)
 {
+	int i;
 	plist_t *ptmp;
 	plist_txt_t *parse;
 
-	ATF_REQUIRE(plist_txt_new(&parse) == 0);
-	ATF_REQUIRE(plist_txt_parse(parse, "true", sizeof("true")) == 0);
-	ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
+	/* parse some good vectors */
+	for (i = 0; i < N_TXTGOOD; i++) {
+		ATF_REQUIRE(plist_txt_new(&parse) == 0);
+		ATF_REQUIRE(plist_txt_parse(parse, txtgood[i],
+			    strlen(txtgood[i])) == 0);
+		ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
+		plist_txt_free(parse);
 
-	plist_dump(ptmp, stderr);
-	
-	plist_free(ptmp);
-	plist_txt_free(parse);
+		plist_dump(ptmp, stderr);
+		plist_free(ptmp);
+	}
 }
 
 

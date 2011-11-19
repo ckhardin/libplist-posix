@@ -49,8 +49,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "plist_txt.h"
+
+
+/* forward declare */
+typedef struct plist_chunk_s plist_chunk_t;
+
+struct plist_chunk_s {
+	const char *pc_cp; /* current */
+	const char *pc_ep; /* end pointer */
+};
+
 
 int
 plist_txt_new(plist_txt_t **txtpp)
@@ -80,8 +91,11 @@ plist_txt_free(plist_txt_t *txt)
 		return;
 	}
 
-	if (txt->pt_top) {
+	if (txt->pt_top != NULL) {
 		plist_free(txt->pt_top);
+	}
+	if (txt->pt_buf != NULL) {
+		free(txt->pt_buf);
 	}
 	free(txt);
 	return;
@@ -99,6 +113,7 @@ _plist_txt_push(plist_txt_t *txt, plist_t *value)
 		return;
 	}
 	if (txt->pt_cur == NULL) {
+		plist_free(value);
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return;
 	}
@@ -113,6 +128,7 @@ _plist_txt_push(plist_txt_t *txt, plist_t *value)
 		break;
 	default:
 		/* invalid parent */
+		plist_free(value);
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return;
 	}
@@ -132,6 +148,7 @@ _plist_txt_next(plist_txt_t *txt, plist_t *value)
 		return;
 	}
 	if (txt->pt_cur == NULL) {
+		plist_free(value);
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return;
 	}
@@ -147,6 +164,7 @@ _plist_txt_next(plist_txt_t *txt, plist_t *value)
 		break;
 	default:
 		/* invalid parent */
+		plist_free(value);
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return;
 	}
@@ -167,14 +185,104 @@ _plist_txt_pop(plist_txt_t *txt)
 	return;
 }
 
+static int
+_plist_txt_buf(plist_txt_t *txt, size_t extend)
+{
+	void *ptr;
+
+	if ((txt->pt_bufsz - txt->pt_bufoff) >= extend) {
+		return 0;
+	}
+
+	ptr = realloc(txt->pt_buf, txt->pt_bufsz + extend);
+	if (ptr == NULL) {
+		return ENOMEM;
+	}
+	txt->pt_buf = ptr;
+	txt->pt_bufsz += extend;
+	return 0;
+}
+
+static void
+_plist_txt_true(plist_txt_t *txt, plist_chunk_t *chunk)
+{
+	int err;
+	char *bp;
+	plist_t *ptmp;
+
+	/* pickup the fragment in the buffer */
+	bp = txt->pt_buf;
+	while (txt->pt_bufoff < strlen("true")) {
+		if (chunk->pc_cp == chunk->pc_ep) {
+			txt->pt_state = PLIST_TXT_STATE_TRUE;
+			return;
+		}
+		bp[txt->pt_bufoff] = chunk->pc_cp[0];
+		txt->pt_bufoff++;
+		chunk->pc_cp++;
+	}
+	if ((tolower(bp[0]) != 't') ||
+	    (tolower(bp[1]) != 'r') ||
+	    (tolower(bp[2]) != 'u') ||
+	    (tolower(bp[3]) != 'e')) {
+		/* invalid value */
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+
+	err = plist_boolean_new(&ptmp, true);
+	if (err != 0) {
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+	_plist_txt_next(txt, ptmp);
+	return;
+}
+
+static void
+_plist_txt_false(plist_txt_t *txt, plist_chunk_t *chunk)
+{
+	int err;
+	char *bp;
+	plist_t *ptmp;
+
+	/* pickup the fragment in the buffer */
+	bp = txt->pt_buf;
+	while (txt->pt_bufoff < strlen("false")) {
+		if (chunk->pc_cp == chunk->pc_ep) {
+			txt->pt_state = PLIST_TXT_STATE_FALSE;
+			return;
+		}
+		bp[txt->pt_bufoff] = chunk->pc_cp[0];
+		txt->pt_bufoff++;
+		chunk->pc_cp++;
+	}
+	if ((tolower(bp[0]) != 'f') ||
+	    (tolower(bp[1]) != 'a') ||
+	    (tolower(bp[2]) != 'l') ||
+	    (tolower(bp[3]) != 's') ||
+	    (tolower(bp[4]) != 'e')) {
+		/* invalid value */
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+
+	err = plist_boolean_new(&ptmp, false);
+	if (err != 0) {
+		txt->pt_state = PLIST_TXT_STATE_ERROR;
+		return;
+	}
+	_plist_txt_next(txt, ptmp);
+	return;
+}
+
 
 int
 plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 {
 	int err;
-	off_t o;
 	plist_t *ptmp;
-	const char *c, *str;
+	plist_chunk_t chunk;
 
 	if (!txt || !buf) {
 		return EINVAL;
@@ -184,121 +292,152 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		return 0;
 	}
 
-	o = 0;
-	c = str = buf;
+	chunk.pc_cp = buf; /* current */
+	chunk.pc_ep = &chunk.pc_cp[sz]; /* end */
  nextstate:
 	switch (txt->pt_state) {
-	default:
-	case PLIST_TXT_STATE_ERROR:
-		return EACCES;
-
 	case PLIST_TXT_STATE_DONE:
 		return 0;
 
 	case PLIST_TXT_STATE_SCAN:
 		/* eat whitespace */
-		while (*c != '\0' && isblank(*c)) {
-			c++; o++;
-			if (o == sz) {
-				return 0;
+		while (chunk.pc_cp[0] != '\0' && isblank(chunk.pc_cp[0])) {
+			if (chunk.pc_cp == chunk.pc_ep) {
+				break;
 			}
+			chunk.pc_cp++;
 		}
-		switch (*c) {
-		case '\0':
-			return 0; /* hit a nil */
+
+		switch (chunk.pc_cp[0]) {
 		case '{':
-			txt->pt_state = PLIST_TXT_STATE_DICT_PUSH;
+			err = plist_dict_new(&ptmp);
+			if (err != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return err;
+			}
+			_plist_txt_push(txt, ptmp);
+
+			chunk.pc_cp++;
 			goto nextstate;
+
 		case '}':
-			txt->pt_state = PLIST_TXT_STATE_DICT_POP;
+			if (txt->pt_cur == NULL ||
+			    txt->pt_cur->p_elem != PLIST_DICT) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EACCES;
+			}
+			_plist_txt_pop(txt);
+
+			chunk.pc_cp++;
 			goto nextstate;
+
 		case '(':
-			txt->pt_state = PLIST_TXT_STATE_ARRAY_PUSH;
+			err = plist_array_new(&ptmp);
+			if (err != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return err;
+			}
+			_plist_txt_push(txt, ptmp);
+
+			chunk.pc_cp++;
 			goto nextstate;
+
 		case ')':
-			txt->pt_state = PLIST_TXT_STATE_ARRAY_POP;
+			if (txt->pt_cur == NULL ||
+			    txt->pt_cur->p_elem != PLIST_ARRAY) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EACCES;
+			}
+			_plist_txt_pop(txt);
+
+			chunk.pc_cp++;
 			goto nextstate;
+
+		case ',':
+			/* just the next element in an array */
+			if (txt->pt_cur == NULL ||
+			    txt->pt_cur->p_elem != PLIST_ARRAY) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EACCES;
+			}
+
+			chunk.pc_cp++;
+			goto nextstate;
+
 		case '<':
 			txt->pt_state = PLIST_TXT_STATE_DATA_BEGIN;
 			goto nextstate;
+
 		case '"':
+			/* eat until we get another '"' */
 			txt->pt_state = PLIST_TXT_STATE_STRING_BEGIN;
 			goto nextstate;
+
 		case 'T':
 		case 't':
-			txt->pt_state = PLIST_TXT_STATE_TRUE_BEGIN;
-			goto nextstate;
+			txt->pt_bufoff = 0;
+			err = _plist_txt_buf(txt, sizeof("true"));
+			if (err != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return err;
+			}
+			_plist_txt_true(txt, &chunk);
+			if (chunk.pc_cp != chunk.pc_ep) {
+				chunk.pc_cp++;
+				goto nextstate;
+			}
+			break;
+
 		case 'F':
 		case 'f':
-			txt->pt_state = PLIST_TXT_STATE_FALSE_BEGIN;
-			goto nextstate;
+			txt->pt_bufoff = 0;
+			err = _plist_txt_buf(txt, sizeof("false"));
+			if (err != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return err;
+			}
+			_plist_txt_false(txt, &chunk);
+			if (chunk.pc_cp != chunk.pc_ep) {
+				chunk.pc_cp++;
+				goto nextstate;
+			}
+			break;
+
 		case '0' ... '9':
 			txt->pt_state = PLIST_TXT_STATE_NUMBER_BEGIN;
 			goto nextstate;
+
 		default:
 			break;
+		}
+
+		if (txt->pt_top != NULL && txt->pt_depth == 0 &&
+		    chunk.pc_cp == chunk.pc_ep) {
+			txt->pt_state = PLIST_TXT_STATE_DONE;
+			return 0;
 		}
 
 		/* invalid character */
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return EINVAL;
 
-	case PLIST_TXT_STATE_DICT_PUSH:
-		err = plist_dict_new(&ptmp);
-		if (err != 0) {
-			txt->pt_state = PLIST_TXT_STATE_ERROR;
-			return err;
-		}
-		_plist_txt_push(txt, ptmp);
+	case PLIST_TXT_STATE_TRUE:
+		assert(strlen("true") < txt->pt_bufsz);
+		assert(txt->pt_bufoff < txt->pt_bufsz);
+
+		_plist_txt_true(txt, &chunk);
 		goto nextstate;
 
-	case PLIST_TXT_STATE_ARRAY_PUSH:
-		err = plist_array_new(&ptmp);
-		if (err != 0) {
-			txt->pt_state = PLIST_TXT_STATE_ERROR;
-			return err;
-		}
-		_plist_txt_push(txt, ptmp);
+	case PLIST_TXT_STATE_FALSE:
+		assert(strlen("false") < txt->pt_bufsz);
+		assert(txt->pt_bufoff < txt->pt_bufsz);
+
+		_plist_txt_false(txt, &chunk);
 		goto nextstate;
 
-	case PLIST_TXT_STATE_ARRAY_POP:
-		_plist_txt_pop(txt);
-		goto nextstate;
-
-	case PLIST_TXT_STATE_TRUE_BEGIN:
-		txt->pt_true.ptt_buf[0] = tolower(*c);
-		txt->pt_true.ptt_cnt = 1;
-
-		/* fallthru */
-		txt->pt_state = PLIST_TXT_STATE_TRUE_VALUE;
-	case PLIST_TXT_STATE_TRUE_VALUE:
-		while (txt->pt_true.ptt_cnt < strlen("true")) {
-			c++; o++;
-			if (o == sz) {
-				return 0;
-			}
-			txt->pt_true.ptt_buf[txt->pt_true.ptt_cnt] = tolower(*c);
-			txt->pt_true.ptt_cnt++;
-		}
-		if ((txt->pt_true.ptt_buf[0] != 't') ||
-		    (txt->pt_true.ptt_buf[1] != 'r') ||
-		    (txt->pt_true.ptt_buf[2] != 'u') ||
-		    (txt->pt_true.ptt_buf[3] != 'e')) {
-			/* invalid value */
-			txt->pt_state = PLIST_TXT_STATE_ERROR;
-			return EINVAL;
-		}
-
-		/* fallthru */
-		txt->pt_state = PLIST_TXT_STATE_TRUE_END;
-	case PLIST_TXT_STATE_TRUE_END:
-		err = plist_boolean_new(&ptmp, true);
-		if (err != 0) {
-			txt->pt_state = PLIST_TXT_STATE_ERROR;
-			return err;
-		}
-		_plist_txt_next(txt, ptmp);
-		goto nextstate;
+	default:
+	case PLIST_TXT_STATE_ERROR:
+		return EACCES;
 	}
 
 	return EAGAIN;

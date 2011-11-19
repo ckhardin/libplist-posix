@@ -1,6 +1,7 @@
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/src
 LDADD = ../src/libplist.la -latf-c
+AM_CFLAGS = -static
 CLEANFILES =
 EXTRA_DIST =
 

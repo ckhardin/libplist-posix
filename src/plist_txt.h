@@ -59,11 +59,9 @@ enum plist_txt_state_e {
 	PLIST_TXT_STATE_DONE,
 
 	PLIST_TXT_STATE_SCAN,
-	PLIST_TXT_STATE_DICT_PUSH,
-	PLIST_TXT_STATE_DICT_KEY,
-	PLIST_TXT_STATE_DICT_POP,
-	PLIST_TXT_STATE_ARRAY_PUSH,
-	PLIST_TXT_STATE_ARRAY_POP,
+	PLIST_TXT_STATE_TRUE,
+	PLIST_TXT_STATE_FALSE,
+
 	PLIST_TXT_STATE_DATA_BEGIN,
 	PLIST_TXT_STATE_DATA_VALUE,
 	PLIST_TXT_STATE_DATA_END,
@@ -73,34 +71,10 @@ enum plist_txt_state_e {
 	PLIST_TXT_STATE_DATE_BEGIN,
 	PLIST_TXT_STATE_DATE_VALUE,
 	PLIST_TXT_STATE_DATE_END,
-	PLIST_TXT_STATE_TRUE_BEGIN,
-	PLIST_TXT_STATE_TRUE_VALUE,
-	PLIST_TXT_STATE_TRUE_END,
-	PLIST_TXT_STATE_FALSE_BEGIN,
-	PLIST_TXT_STATE_FALSE_VALUE,
-	PLIST_TXT_STATE_FALSE_END,
 	PLIST_TXT_STATE_NUMBER_BEGIN,
 	PLIST_TXT_STATE_NUMBER_VALUE,
 	PLIST_TXT_STATE_NUMBER_END
 };
-
-struct plist_txt_dict_s {
-	const char *ptd_key;
-};
-
-struct plist_txt_true_s {
-	int ptt_cnt;
-	char ptt_buf[sizeof("true")];
-};
-
-struct plist_txt_false_s {
-	int ptf_cnt;
-};
-
-struct plist_txt_number_s {
-	int ptn_integer;
-};
-	
 
 /**
  * Define the plist text parser context that is used to generate
@@ -112,17 +86,16 @@ struct plist_txt_s {
 	plist_t *pt_top;
 	plist_t *pt_cur;
 
-	union {
-		struct plist_txt_dict_s		ptu_dict;
-		struct plist_txt_true_s		ptu_true;
-		struct plist_txt_false_s	ptu_false;
-		struct plist_txt_number_s	ptu_number;
-	} pt_un;
-#define pt_dict		pt_un.ptu_dict
-#define pt_true		pt_un.ptu_true
-#define pt_false	pt_un.ptu_false	
-#define pt_number	pt_un.ptu_number
+	/* escape sequence in parse */
+	bool pt_escape;
+	char pt_escapeseq[4];
+	
+	/* buffer used for intermediate data */
+	off_t pt_bufoff;
+	size_t pt_bufsz;
+	void *pt_buf;
 };
+
 
 __BEGIN_DECLS
 
