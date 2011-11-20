@@ -298,24 +298,47 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			goto nextstate;
 
 		case '"':
-			cp = &chunk.pc_cp[1];
+			cp = ++chunk.pc_cp;
 			/* eat until we get another '"' */
-			while (cp != chunk.pc_ep) {
+			for (;;) {
+				if (cp == chunk.pc_ep) {
+					/* have a string fragment */
+					txt->pt_bufoff = 0;
+					err = _plist_txt_buf(
+						txt, cp - chunk.pc_cp);
+					if (err != 0) {
+						txt->pt_state =
+						    PLIST_TXT_STATE_ERROR;
+						return err;
+					}
+					txt->pt_state = PLIST_TXT_STATE_STRING;
+					goto nextstate;
+				}
+
+				if (cp[0] == '\\') {
+					/* escape */
+					txt->pt_escape = true;
+					continue;
+				}
 				if (cp[0] == '"') {
 					/* have a string */
+					err = plist_format_new(
+						&ptmp, "%.*s",
+						cp - chunk.pc_cp, chunk.pc_cp);
+					if (err != 0) {
+						txt->pt_state =
+						    PLIST_TXT_STATE_ERROR;
+						return err;
+					}
+					_plist_txt_next(txt, ptmp);
+					chunk.pc_cp = &cp[1];
+					goto nextstate;
 				}
 				cp++;
 			}
 
-			/* have a string fragment */
-			txt->pt_bufoff = 0;
-			err = _plist_txt_buf(txt, chunk.pc_ep - cp);
-			if (err != 0) {
-				txt->pt_state = PLIST_TXT_STATE_ERROR;
-				return err;
-			}
-			txt->pt_state = PLIST_TXT_STATE_STRING;
-			goto nextstate;
+			/* not reached */
+			break;
 
 		case '0' ... '9':
 			txt->pt_state = PLIST_TXT_STATE_NUMBER_BEGIN;

@@ -81,6 +81,8 @@ enum plist_txt_state_e {
 struct plist_txt_s {
 	enum plist_txt_state_e pt_state;
 	int pt_depth;
+
+	/* plist storage objects */
 	plist_t *pt_top;
 	plist_t *pt_cur;
 

@@ -298,7 +298,7 @@ const char *txtgood[] = {
 	"true",
 	"( true)",
 	"(false, true)",
-	"{ \"flag\" = true }",
+	"\"flag\"",
 };
 #define N_TXTGOOD (sizeof(txtgood)/sizeof(txtgood[0]))
 
