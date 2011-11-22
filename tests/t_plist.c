@@ -296,9 +296,10 @@ ATF_TC_HEAD(t_plist_txt, tc)
 
 const char *txtgood[] = {
 	"true",
+	"\"str\"",
+	"\"esc\\\"ape\"",
 	"( true)",
 	"(false, true)",
-	"\"flag\"",
 };
 #define N_TXTGOOD (sizeof(txtgood)/sizeof(txtgood[0]))
 

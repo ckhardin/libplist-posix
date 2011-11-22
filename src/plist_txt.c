@@ -53,6 +53,7 @@
 
 #include "plist_txt.h"
 
+#define CHUNK_EXTENDSZ  (32) /* grow a chunk by 32 bytes */
 
 /* forward declare */
 typedef struct plist_chunk_s plist_chunk_t;
@@ -317,14 +318,23 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 
 				if (cp[0] == '\\') {
 					/* escape */
-					txt->pt_escape = true;
-					continue;
+					txt->pt_bufoff = 0;
+					err = _plist_txt_buf(
+						txt, cp - chunk.pc_cp);
+					if (err != 0) {
+						txt->pt_state =
+						    PLIST_TXT_STATE_ERROR;
+						return err;
+					}
+					txt->pt_state = PLIST_TXT_STATE_STRING;
+					goto nextstate;
 				}
 				if (cp[0] == '"') {
 					/* have a string */
 					err = plist_format_new(
 						&ptmp, "%.*s",
-						cp - chunk.pc_cp, chunk.pc_cp);
+						(int)(cp - chunk.pc_cp),
+						chunk.pc_cp);
 					if (err != 0) {
 						txt->pt_state =
 						    PLIST_TXT_STATE_ERROR;
@@ -340,9 +350,65 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			/* not reached */
 			break;
 
+		case '-':
 		case '0' ... '9':
-			txt->pt_state = PLIST_TXT_STATE_NUMBER_BEGIN;
-			goto nextstate;
+			cp = chunk.pc_cp;
+			/* eat all the digits */
+			for (;;) {
+				char *ep;
+				long long ll;
+
+				if (cp == chunk.pc_ep) {
+					/* have a number fragment */
+					txt->pt_bufoff = 0;
+					err = _plist_txt_buf(
+						txt, cp - chunk.pc_cp);
+					if (err != 0) {
+						txt->pt_state =
+						    PLIST_TXT_STATE_ERROR;
+						return err;
+					}
+					txt->pt_state = PLIST_TXT_STATE_NUMBER;
+					goto nextstate;
+				}
+				if (isdigit(cp[0])) {
+					cp++;
+					continue;
+				}
+				if (cp[0] == '.' ||
+				    cp[0] == 'e' || cp[0] == 'E') {
+					/* have a real number */
+					txt->pt_bufoff = 0;
+					err = _plist_txt_buf(
+						txt, cp - chunk.pc_cp);
+					if (err != 0) {
+						txt->pt_state =
+						    PLIST_TXT_STATE_ERROR;
+						return err;
+					}
+					txt->pt_state = PLIST_TXT_STATE_DOUBLE;
+					goto nextstate;
+				}
+
+				/* try to parse this number */
+				ll = strtoll(chunk.pc_cp, &ep, 0);
+				if (ep != cp) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return EINVAL;
+				}
+
+				err = plist_integer_new(&ptmp, ll);
+				if (err != 0) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return err;
+				}
+				_plist_txt_next(txt, ptmp);
+				chunk.pc_cp = cp;
+				goto nextstate;
+			}
+
+			/* not reached */
+			break;
 
 		case 'T':
 		case 't':
@@ -420,6 +486,73 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		/* invalid character */
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return EINVAL;
+
+	case PLIST_TXT_STATE_STRING:
+		/* escape the string into the buffer */
+		bp = txt->pt_buf;
+		for (;;) {
+			if (chunk.pc_cp == chunk.pc_ep) {
+				return 0;
+			}
+			if (txt->pt_bufoff == txt->pt_bufsz) {
+				err = _plist_txt_buf(txt, CHUNK_EXTENDSZ);
+				if (err != 0) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return err;
+				}
+				bp = txt->pt_buf;
+			}
+			if (txt->pt_escape) {
+				switch (chunk.pc_cp[0]) {
+				case '\\':
+				case '/':
+				case '"':
+					bp[txt->pt_bufoff] = chunk.pc_cp[0];
+					break;
+				case 'b':
+					bp[txt->pt_bufoff] = '\b';
+					break;
+				case 't':
+					bp[txt->pt_bufoff] = '\t';
+					break;
+				case 'n':
+					bp[txt->pt_bufoff] = '\n';
+					break;
+				case 'r':
+					bp[txt->pt_bufoff] = '\r';
+					break;
+				}
+				txt->pt_bufoff++;
+				chunk.pc_cp++;
+				txt->pt_escape = false;
+				continue;
+			}
+			if (chunk.pc_cp[0] == '\\') {
+				txt->pt_escape = true;
+				chunk.pc_cp++;
+				continue;
+			}
+			if (chunk.pc_cp[0] == '"') {
+				bp[txt->pt_bufoff] = '\0';
+				chunk.pc_cp++;
+				break;
+			}
+
+			bp[txt->pt_bufoff] = chunk.pc_cp[0];
+			txt->pt_bufoff++;
+			chunk.pc_cp++;
+		}
+
+		/* insert an escaped string */
+		err = plist_string_new(&ptmp, bp);
+		if (err != 0) {
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return err;
+		}
+		_plist_txt_next(txt, ptmp);
+
+		txt->pt_state = PLIST_TXT_STATE_SCAN;
+		goto nextstate;
 
 	case PLIST_TXT_STATE_TRUE:
 		assert(strlen("true") < txt->pt_bufsz);

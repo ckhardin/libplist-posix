@@ -60,6 +60,8 @@ enum plist_txt_state_e {
 
 	PLIST_TXT_STATE_SCAN,
 	PLIST_TXT_STATE_STRING,
+	PLIST_TXT_STATE_NUMBER,
+	PLIST_TXT_STATE_DOUBLE,
 	PLIST_TXT_STATE_TRUE,
 	PLIST_TXT_STATE_FALSE,
 
@@ -88,8 +90,7 @@ struct plist_txt_s {
 
 	/* escape sequence in parse */
 	bool pt_escape;
-	char pt_escapeseq[4];
-	
+
 	/* buffer used for intermediate data */
 	off_t pt_bufoff;
 	size_t pt_bufsz;
