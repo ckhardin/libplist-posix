@@ -298,6 +298,10 @@ const char *txtgood[] = {
 	"true",
 	"\"str\"",
 	"\"esc\\\"ape\"",
+	"-2",
+	"1",
+	"0.123",
+	"100e2",
 	"( true)",
 	"(false, true)",
 };
@@ -313,7 +317,7 @@ ATF_TC_BODY(t_plist_txt, tc)
 	for (i = 0; i < N_TXTGOOD; i++) {
 		ATF_REQUIRE(plist_txt_new(&parse) == 0);
 		ATF_REQUIRE(plist_txt_parse(parse, txtgood[i],
-			    strlen(txtgood[i])) == 0);
+			    strlen(txtgood[i]) + 1) == 0);
 		ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
 		plist_txt_free(parse);
 

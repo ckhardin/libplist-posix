@@ -330,11 +330,13 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 					goto nextstate;
 				}
 				if (cp[0] == '"') {
+					int cplen;
+
 					/* have a string */
+					cplen = cp - chunk.pc_cp;
 					err = plist_format_new(
 						&ptmp, "%.*s",
-						(int)(cp - chunk.pc_cp),
-						chunk.pc_cp);
+						cplen, chunk.pc_cp);
 					if (err != 0) {
 						txt->pt_state =
 						    PLIST_TXT_STATE_ERROR;
@@ -353,6 +355,10 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		case '-':
 		case '0' ... '9':
 			cp = chunk.pc_cp;
+			if (cp[0] == '-') {
+				cp++;
+			}
+
 			/* eat all the digits */
 			for (;;) {
 				char *ep;
@@ -473,14 +479,15 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			chunk.pc_cp += 5;
 			goto nextstate;
 
+		case '\0':
+			if (txt->pt_top != NULL && txt->pt_depth == 0) {
+				txt->pt_state = PLIST_TXT_STATE_DONE;
+				return 0;
+			}
+			break;
+
 		default:
 			break;
-		}
-
-		if (txt->pt_top != NULL && txt->pt_depth == 0 &&
-		    chunk.pc_cp == chunk.pc_ep) {
-			txt->pt_state = PLIST_TXT_STATE_DONE;
-			return 0;
 		}
 
 		/* invalid character */
@@ -514,6 +521,9 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 					break;
 				case 't':
 					bp[txt->pt_bufoff] = '\t';
+					break;
+				case 'f':
+					bp[txt->pt_bufoff] = '\f';
 					break;
 				case 'n':
 					bp[txt->pt_bufoff] = '\n';
@@ -553,6 +563,116 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 
 		txt->pt_state = PLIST_TXT_STATE_SCAN;
 		goto nextstate;
+
+	case PLIST_TXT_STATE_NUMBER:
+		bp = txt->pt_buf;
+		for (;;) {
+			char *ep;
+			long long ll;
+
+			if (chunk.pc_cp == chunk.pc_ep) {
+				return 0;
+			}
+			if (txt->pt_bufoff == txt->pt_bufsz) {
+				err = _plist_txt_buf(txt, CHUNK_EXTENDSZ);
+				if (err != 0) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return err;
+				}
+				bp = txt->pt_buf;
+			}
+
+			if (chunk.pc_cp[0] == '.' ||
+			    chunk.pc_cp[0] == 'e' || chunk.pc_cp[0] == 'E') {
+				/* switch to a real number */
+				txt->pt_state = PLIST_TXT_STATE_DOUBLE;
+				goto nextstate;
+			}
+
+			if (isdigit(chunk.pc_cp[0]) == true) {
+				bp[txt->pt_bufoff] = chunk.pc_cp[0];
+				txt->pt_bufoff++;
+				chunk.pc_cp++;
+				continue;
+			}
+			if ((txt->pt_bufoff == 0) && (chunk.pc_cp[0] == '-')) {
+				bp[txt->pt_bufoff] = chunk.pc_cp[0];
+				txt->pt_bufoff++;
+				chunk.pc_cp++;
+				continue;
+			}
+			bp[txt->pt_bufoff] = 0;
+
+			/* try to parse this number */
+			ll = strtoll(bp, &ep, 0);
+			if (*ep != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EINVAL;
+			}
+
+			err = plist_integer_new(&ptmp, ll);
+			if (err != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return err;
+			}
+			_plist_txt_next(txt, ptmp);
+
+			txt->pt_state = PLIST_TXT_STATE_SCAN;
+			goto nextstate;
+		}
+
+		/* notreached */
+		break;
+
+	case PLIST_TXT_STATE_DOUBLE:
+		bp = txt->pt_buf;
+		for (;;) {
+			char *ep;
+			double d;
+
+			if (chunk.pc_cp == chunk.pc_ep) {
+				return 0;
+			}
+			if (txt->pt_bufoff == txt->pt_bufsz) {
+				err = _plist_txt_buf(txt, CHUNK_EXTENDSZ);
+				if (err != 0) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return err;
+				}
+				bp = txt->pt_buf;
+			}
+
+			if (chunk.pc_cp[0] == '.' ||
+			    chunk.pc_cp[0] == 'e' || chunk.pc_cp[0] == 'E' ||
+			    chunk.pc_cp[0] == '+' || chunk.pc_cp[0] == '-' ||
+			    isdigit(chunk.pc_cp[0]) == true) {
+				bp[txt->pt_bufoff] = chunk.pc_cp[0];
+				txt->pt_bufoff++;
+				chunk.pc_cp++;
+				continue;
+			}
+			bp[txt->pt_bufoff] = 0;
+
+			/* try to parse this double */
+			d = strtod(bp, &ep);
+			if (*ep != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EINVAL;
+			}
+
+			err = plist_real_new(&ptmp, d);
+			if (err != 0) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return err;
+			}
+			_plist_txt_next(txt, ptmp);
+
+			txt->pt_state = PLIST_TXT_STATE_SCAN;
+			goto nextstate;
+		}
+
+		/* notreached */
+		break;
 
 	case PLIST_TXT_STATE_TRUE:
 		assert(strlen("true") < txt->pt_bufsz);
