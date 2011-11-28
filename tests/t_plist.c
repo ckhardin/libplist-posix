@@ -302,8 +302,11 @@ const char *txtgood[] = {
 	"1",
 	"0.123",
 	"100e2",
+	"<fe>",
+	"< f e a >",
+	"<*1912-12-12 12:12:12 +0000>",
 	"( true)",
-	"(false, true)",
+	"(false, <de ad be ef>)",
 };
 #define N_TXTGOOD (sizeof(txtgood)/sizeof(txtgood[0]))
 

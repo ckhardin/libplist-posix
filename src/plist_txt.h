@@ -59,21 +59,13 @@ enum plist_txt_state_e {
 	PLIST_TXT_STATE_DONE,
 
 	PLIST_TXT_STATE_SCAN,
+	PLIST_TXT_STATE_DATA,
+	PLIST_TXT_STATE_DATE,
 	PLIST_TXT_STATE_STRING,
 	PLIST_TXT_STATE_NUMBER,
 	PLIST_TXT_STATE_DOUBLE,
 	PLIST_TXT_STATE_TRUE,
 	PLIST_TXT_STATE_FALSE,
-
-	PLIST_TXT_STATE_DATA_BEGIN,
-	PLIST_TXT_STATE_DATA_VALUE,
-	PLIST_TXT_STATE_DATA_END,
-	PLIST_TXT_STATE_DATE_BEGIN,
-	PLIST_TXT_STATE_DATE_VALUE,
-	PLIST_TXT_STATE_DATE_END,
-	PLIST_TXT_STATE_NUMBER_BEGIN,
-	PLIST_TXT_STATE_NUMBER_VALUE,
-	PLIST_TXT_STATE_NUMBER_END
 };
 
 /**
@@ -90,6 +82,9 @@ struct plist_txt_s {
 
 	/* escape sequence in parse */
 	bool pt_escape;
+
+	/* offset for data conversion */
+	off_t pt_datacnt;
 
 	/* buffer used for intermediate data */
 	off_t pt_bufoff;

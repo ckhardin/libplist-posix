@@ -295,7 +295,10 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			goto nextstate;
 
 		case '<':
-			txt->pt_state = PLIST_TXT_STATE_DATA_BEGIN;
+			chunk.pc_cp++;
+			txt->pt_datacnt = 0;
+			txt->pt_bufoff = 0;
+			txt->pt_state = PLIST_TXT_STATE_DATA;
 			goto nextstate;
 
 		case '"':
@@ -494,6 +497,110 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		txt->pt_state = PLIST_TXT_STATE_ERROR;
 		return EINVAL;
 
+	case PLIST_TXT_STATE_DATA:
+		bp = txt->pt_buf;
+		for (;;) {
+			if (chunk.pc_cp == chunk.pc_ep) {
+				return 0;
+			}
+			if (txt->pt_bufoff == 0 && chunk.pc_cp[0] == '*') {
+				/* switch to date parse */
+				chunk.pc_cp++;
+				txt->pt_state = PLIST_TXT_STATE_DATE;
+				goto nextstate;
+			}
+			if (txt->pt_bufoff == txt->pt_bufsz) {
+				err = _plist_txt_buf(txt, CHUNK_EXTENDSZ);
+				if (err != 0) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return err;
+				}
+				bp = txt->pt_buf;
+			}
+			if (isblank(chunk.pc_cp[0]) == true) {
+				chunk.pc_cp++;
+				continue;
+			}
+			if (chunk.pc_cp[0] == '>') {
+				/* end of data */
+				chunk.pc_cp++;
+				break;
+			}
+
+#define tohex(_c)  (isdigit(_c) ? (_c) - '0' : tolower(_c)  - 'a' + 10)
+
+			if ((txt->pt_datacnt % 2) == 0) {
+				bp[txt->pt_bufoff] =
+				    tohex(chunk.pc_cp[0]) << 4;
+				txt->pt_datacnt++;
+				chunk.pc_cp++;
+				continue;
+			}
+			bp[txt->pt_bufoff] |= tohex(chunk.pc_cp[0]);
+			txt->pt_datacnt++;
+			txt->pt_bufoff++;
+			chunk.pc_cp++;
+
+#undef tohex
+		}
+
+		/* insert a data buffer */
+		err = plist_data_new(&ptmp, bp,
+				     txt->pt_datacnt/2 + txt->pt_datacnt%2);
+		if (err != 0) {
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return err;
+		}
+		_plist_txt_next(txt, ptmp);
+
+		txt->pt_state = PLIST_TXT_STATE_SCAN;
+		goto nextstate;
+
+	case PLIST_TXT_STATE_DATE:
+		/* pull the date string in the buffer */
+		bp = txt->pt_buf;
+		for (;;) {
+			if (chunk.pc_cp == chunk.pc_ep) {
+				return 0;
+			}
+			if (txt->pt_bufoff == txt->pt_bufsz) {
+				err = _plist_txt_buf(txt, CHUNK_EXTENDSZ);
+				if (err != 0) {
+					txt->pt_state = PLIST_TXT_STATE_ERROR;
+					return err;
+				}
+				bp = txt->pt_buf;
+			}
+			if (chunk.pc_cp[0] == '>') {
+				bp[txt->pt_bufoff] = '\0';
+				chunk.pc_cp++;
+				break;
+			}
+
+			bp[txt->pt_bufoff] = chunk.pc_cp[0];
+			txt->pt_bufoff++;
+			chunk.pc_cp++;
+		}
+
+		/* insert a date string */
+		struct tm tm;
+		cp = strptime(bp, "%Y-%m-%d %H:%M:%S %z", &tm);
+		if (cp == NULL) {
+			/* conversion failed */
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return EINVAL;
+		}
+		err = plist_date_new(&ptmp, &tm);
+		if (err != 0) {
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return err;
+		}
+		_plist_txt_next(txt, ptmp);
+
+		txt->pt_state = PLIST_TXT_STATE_SCAN;
+		goto nextstate;
+
+		
 	case PLIST_TXT_STATE_STRING:
 		/* escape the string into the buffer */
 		bp = txt->pt_buf;
