@@ -142,6 +142,8 @@ _plist_txt_push(plist_txt_t *txt, plist_t *value)
 static void
 _plist_txt_next(plist_txt_t *txt, plist_t *value)
 {
+	char *str;
+
 	if (txt->pt_depth == 0) {
 		txt->pt_top = value;
 		txt->pt_cur = value;
@@ -156,6 +158,30 @@ _plist_txt_next(plist_txt_t *txt, plist_t *value)
 
 	/* insert into the current container */
 	switch (txt->pt_cur->p_elem) {
+	case PLIST_DICT:
+		/* simple conversion of a string to a key */
+		if (value->p_elem != PLIST_STRING) {
+			plist_free(value);
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return;
+		}
+		str = value->p_string.ps_str;
+		if (plist_dict_haskey(txt->pt_cur, str) == true) {
+			plist_free(value);
+			txt->pt_state = PLIST_TXT_STATE_ERROR;
+			return;
+		}
+		value->p_elem = PLIST_KEY;
+		value->p_key.pk_name = str;
+		value->p_key.pk_value = NULL;
+
+		txt->pt_cur->p_dict.pd_numkeys++;
+		TAILQ_INSERT_TAIL(&txt->pt_cur->p_dict.pd_keys,
+				  value, p_entry);
+		value->p_parent = txt->pt_cur;
+		txt->pt_cur = value;
+		txt->pt_depth++;
+		break;
 	case PLIST_KEY:
 		plist_dict_set(txt->pt_cur->p_parent,
 			       txt->pt_cur->p_key.pk_name, value);
@@ -251,8 +277,37 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			goto nextstate;
 
 		case '}':
+			if (txt->pt_cur == NULL) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EACCES;
+			}
+			if (txt->pt_cur->p_elem == PLIST_KEY) {
+				_plist_txt_pop(txt);
+			}
+			if (txt->pt_cur->p_elem != PLIST_DICT) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EACCES;
+			}
+			_plist_txt_pop(txt);
+
+			chunk.pc_cp++;
+			goto nextstate;
+
+		case ':':
+			/* the value in a dictionary */
 			if (txt->pt_cur == NULL ||
-			    txt->pt_cur->p_elem != PLIST_DICT) {
+			    txt->pt_cur->p_elem != PLIST_KEY) {
+				txt->pt_state = PLIST_TXT_STATE_ERROR;
+				return EACCES;
+			}
+
+			chunk.pc_cp++;
+			goto nextstate;
+
+		case ';':
+			/* the next key in a dictionary */
+			if (txt->pt_cur == NULL ||
+			    txt->pt_cur->p_elem != PLIST_KEY) {
 				txt->pt_state = PLIST_TXT_STATE_ERROR;
 				return EACCES;
 			}

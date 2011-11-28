@@ -239,7 +239,7 @@ plist_dict_haskey(const plist_t *dict, const char *name)
 		return false;
 	}
 	if (dict->p_elem != PLIST_DICT) {
-		return EACCES;
+		return false;
 	}
 
 	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {

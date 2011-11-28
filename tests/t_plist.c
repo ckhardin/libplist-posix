@@ -307,6 +307,9 @@ const char *txtgood[] = {
 	"<*1912-12-12 12:12:12 +0000>",
 	"( true)",
 	"(false, <de ad be ef>)",
+	"{ \"name\" : true }",
+	"{ \"name\" : {} }",
+	"{ \"one\" : ( ); \"two\" : \"boo\"}",
 };
 #define N_TXTGOOD (sizeof(txtgood)/sizeof(txtgood[0]))
 
