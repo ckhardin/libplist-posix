@@ -143,24 +143,25 @@ plist_dict_set(plist_t *dict, const char *name, plist_t *value)
 		return EPERM;
 	}
 
-	namesz = strlen(name) + 1;
-	key = malloc(sizeof(*key) + namesz);
-	if (key == NULL) {
-		return ENOMEM;
-	}
-	memset(key, 0, sizeof(*key));
-
-	/* attempt to delete an existing key here, since the allocation
-	 * has already occurred for the new key
-	 */
+	/* attempt to reuse an existing key here */
 	TAILQ_FOREACH(ptmp, &dict->p_dict.pd_keys, p_entry) {
 		if (strcmp(ptmp->p_key.pk_name, name) == 0) {
 			break;
 		}
 	}
 	if (ptmp != NULL) {
-		plist_free(ptmp);
+		plist_free(ptmp->p_key.pk_value);
+		ptmp->p_key.pk_value = value;
+		value->p_parent = ptmp;
+		return 0;
 	}
+
+	namesz = strlen(name) + 1;
+	key = malloc(sizeof(*key) + namesz);
+	if (key == NULL) {
+		return ENOMEM;
+	}
+	memset(key, 0, sizeof(*key));
 
 	key->p_elem = PLIST_KEY;
 	key->p_key.pk_name = (char *) &key[1];
