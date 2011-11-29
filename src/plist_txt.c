@@ -751,7 +751,7 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 				goto nextstate;
 			}
 
-			if (isdigit(chunk.pc_cp[0]) == true) {
+			if (isdigit(chunk.pc_cp[0])) {
 				bp[txt->pt_bufoff] = chunk.pc_cp[0];
 				txt->pt_bufoff++;
 				chunk.pc_cp++;
@@ -807,7 +807,7 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			if (chunk.pc_cp[0] == '.' ||
 			    chunk.pc_cp[0] == 'e' || chunk.pc_cp[0] == 'E' ||
 			    chunk.pc_cp[0] == '+' || chunk.pc_cp[0] == '-' ||
-			    isdigit(chunk.pc_cp[0]) == true) {
+			    isdigit(chunk.pc_cp[0])) {
 				bp[txt->pt_bufoff] = chunk.pc_cp[0];
 				txt->pt_bufoff++;
 				chunk.pc_cp++;
