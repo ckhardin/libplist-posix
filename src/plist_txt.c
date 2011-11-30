@@ -259,7 +259,7 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 		/* eat whitespace */
 		while (chunk.pc_cp[0] != '\0' && isblank(chunk.pc_cp[0])) {
 			if (chunk.pc_cp == chunk.pc_ep) {
-				break;
+				return 0;
 			}
 			chunk.pc_cp++;
 		}

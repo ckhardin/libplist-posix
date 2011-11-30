@@ -315,7 +315,7 @@ const char *txtgood[] = {
 
 ATF_TC_BODY(t_plist_txt, tc)
 {
-	int i;
+	int i, j;
 	plist_t *ptmp;
 	plist_txt_t *parse;
 
@@ -324,6 +324,20 @@ ATF_TC_BODY(t_plist_txt, tc)
 		ATF_REQUIRE(plist_txt_new(&parse) == 0);
 		ATF_REQUIRE(plist_txt_parse(parse, txtgood[i],
 			    strlen(txtgood[i]) + 1) == 0);
+		ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
+		plist_txt_free(parse);
+
+		plist_dump(ptmp, stderr);
+		plist_free(ptmp);
+	}
+
+	/* parse some good vectors a byte at a time */
+	for (i = 0; i < N_TXTGOOD; i++) {
+		ATF_REQUIRE(plist_txt_new(&parse) == 0);
+		for(j = 0; j < strlen(txtgood[i]) + 1; j++) {
+			ATF_REQUIRE(plist_txt_parse(parse,
+						    &txtgood[i][j], 1) == 0);
+		}
 		ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
 		plist_txt_free(parse);
 
