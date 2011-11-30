@@ -921,8 +921,11 @@ plist_txt_result(plist_txt_t *txt, plist_t **plistpp)
 	if (!txt || !plistpp) {
 		return EINVAL;
 	}
-	ptmp = txt->pt_top;
 	pstate = txt->pt_state;
+	ptmp = txt->pt_top;
+	if (txt->pt_buf != NULL) {
+		free(txt->pt_buf);
+	}
 
 	memset(txt, 0, sizeof(*txt));
 	txt->pt_state = PLIST_TXT_STATE_SCAN;
