@@ -446,6 +446,17 @@ plist_t *plist_next(plist_iterator_t *pi);
 bool plist_iselem(const plist_t *plist, enum plist_elem_e type);
 
 /**
+ * Check if the plists are value equivalent. This means that the tree
+ * must have a matching value in both plists. The dictionaray comparison
+ * checks for matching keys but does not check the order of the keys.
+ *
+ * @param  plist1  element that should be checked
+ * @param  plist2  element that should be checked
+ * @return true on a match, false in all other cases
+ */
+bool plist_isequal(const plist_t *plist1, const plist_t *plist2);
+
+/**
  * Plist buffered io dump routine to pretty print a representation of
  * the property elements.
  *

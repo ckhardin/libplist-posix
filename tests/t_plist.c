@@ -219,7 +219,9 @@ ATF_TC_BODY(t_plist_dict, tc)
 	ATF_REQUIRE(plist_dict_del(dict, type) == 0);
 	ATF_REQUIRE(plist_dict_haskey(dict, type) == false);
 	ATF_REQUIRE(plist_copy(dict, &ptmp) == 0);
+	ATF_REQUIRE(plist_isequal(dict, ptmp) == true);
 	ATF_REQUIRE(plist_dict_set(dict, type, ptmp) == 0);
+	ATF_REQUIRE(plist_isequal(dict, ptmp) == false);
 	plist_dump(dict, stderr);
 
 	plist_free(dict);
@@ -271,7 +273,9 @@ ATF_TC_BODY(t_plist_array, tc)
 
 	/* test a copy */
 	ATF_REQUIRE(plist_copy(array, &ptmp) == 0);
+	ATF_REQUIRE(plist_isequal(array, ptmp) == true);
 	ATF_REQUIRE(plist_array_append(array, ptmp) == 0);
+	ATF_REQUIRE(plist_isequal(array, ptmp) == false);
 	plist_dump(array, stderr);
 
 	/* test a pop */
@@ -316,33 +320,32 @@ const char *txtgood[] = {
 ATF_TC_BODY(t_plist_txt, tc)
 {
 	int i, j;
-	plist_t *ptmp;
+	plist_t *ptmp1, *ptmp2;
 	plist_txt_t *parse;
 
 	/* parse some good vectors */
 	for (i = 0; i < N_TXTGOOD; i++) {
 		ATF_REQUIRE(plist_txt_new(&parse) == 0);
+
 		ATF_REQUIRE(plist_txt_parse(parse, txtgood[i],
 			    strlen(txtgood[i]) + 1) == 0);
-		ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
-		plist_txt_free(parse);
+		ATF_REQUIRE(plist_txt_result(parse, &ptmp1) == 0);
+		plist_dump(ptmp1, stderr);
 
-		plist_dump(ptmp, stderr);
-		plist_free(ptmp);
-	}
-
-	/* parse some good vectors a byte at a time */
-	for (i = 0; i < N_TXTGOOD; i++) {
-		ATF_REQUIRE(plist_txt_new(&parse) == 0);
+		/* a byte at a time */
 		for(j = 0; j < strlen(txtgood[i]) + 1; j++) {
 			ATF_REQUIRE(plist_txt_parse(parse,
 						    &txtgood[i][j], 1) == 0);
 		}
-		ATF_REQUIRE(plist_txt_result(parse, &ptmp) == 0);
+		ATF_REQUIRE(plist_txt_result(parse, &ptmp2) == 0);
+		plist_dump(ptmp2, stderr);
+
 		plist_txt_free(parse);
 
-		plist_dump(ptmp, stderr);
-		plist_free(ptmp);
+		ATF_REQUIRE(plist_isequal(ptmp1, ptmp2) == true);
+
+		plist_free(ptmp1);
+		plist_free(ptmp2);
 	}
 }
 

@@ -1029,6 +1029,216 @@ plist_iselem(const plist_t *plist, enum plist_elem_e elem)
 }
 
 
+bool
+plist_isequal(const plist_t *plist1, const plist_t *plist2)
+{
+	const plist_t *pcur1, *ptmp1;
+	const plist_t *pcur2, *ptmp2;
+	enum { DECEND, NEXT } direction;
+
+	if (!plist1 && !plist2) {
+		return true;
+	}
+	if (!plist1 || !plist2) {
+		return false;
+	}
+
+	pcur1 = plist1;
+	pcur2 = plist2;
+	for (;;) {
+		if (pcur1->p_elem != pcur2->p_elem) {
+			return false;
+		}
+
+		/* do the value comparisons up front and set direction */
+		direction = NEXT;
+		switch (pcur1->p_elem) {
+		case PLIST_DICT:
+			direction = DECEND;
+			break;
+		case PLIST_KEY:
+			if (pcur1->p_key.pk_value != NULL &&
+			    pcur2->p_key.pk_value != NULL) {
+				direction = DECEND;
+				break;
+			}
+			if (pcur1->p_key.pk_value != NULL ||
+			    pcur2->p_key.pk_value != NULL) {
+				return false;
+			}
+			break;
+		case PLIST_ARRAY:
+			direction = DECEND;
+			break;
+		case PLIST_DATA:
+			if (pcur1->p_data.pd_datasz !=
+			    pcur2->p_data.pd_datasz) {
+				return false;
+			}
+			if (memcmp(pcur1->p_data.pd_data,
+				   pcur2->p_data.pd_data,
+				   pcur1->p_data.pd_datasz) != 0) {
+				return false;
+			}
+			break;
+		case PLIST_DATE:
+			if (mktime(&pcur1->p_date.pd_tm) !=
+			    mktime(&pcur2->p_date.pd_tm)) {
+				return false;
+			}
+			break;
+		case PLIST_STRING:
+			if (strcmp(pcur1->p_string.ps_str,
+				   pcur2->p_string.ps_str) != 0) {
+				return false;
+			}
+			break;
+		case PLIST_INTEGER:
+			if (pcur1->p_integer.pi_int !=
+			    pcur2->p_integer.pi_int) {
+				return false;
+			}
+			break;
+		case PLIST_REAL:
+			if (pcur1->p_real.pr_double !=
+			    pcur2->p_real.pr_double) {
+				return false;
+			}
+			break;
+		case PLIST_BOOLEAN:
+			if (pcur1->p_boolean.pb_bool !=
+			    pcur2->p_boolean.pb_bool) {
+				return false;
+			}
+			break;
+		default:
+			break;
+		}
+		
+		while (direction == DECEND) {
+			if (pcur1->p_elem == PLIST_DICT) {
+				if (pcur1->p_dict.pd_numkeys !=
+				    pcur2->p_dict.pd_numkeys) {
+					return false;
+				}
+				ptmp1 = TAILQ_FIRST(&pcur1->p_dict.pd_keys);
+				if (ptmp1 == NULL) {
+					direction = NEXT;
+					break;
+				}
+				TAILQ_FOREACH(ptmp2, &pcur2->p_dict.pd_keys,
+					      p_entry) {
+					if (strcmp(ptmp1->p_key.pk_name,
+						   ptmp2->p_key.pk_name) == 0)
+						break;
+				}
+				if (ptmp2 == NULL) {
+					/* no matching key */
+					return false;
+				}
+				pcur1 = ptmp1;
+				pcur2 = ptmp2;
+				continue;
+			}
+			if (pcur1->p_elem == PLIST_KEY) {
+				ptmp1 = pcur1->p_key.pk_value;
+				if (ptmp1 == NULL) {
+					direction = NEXT;
+					break;
+				}
+				ptmp2 = pcur2->p_key.pk_value;
+				if (ptmp2 == NULL) {
+					/* no matching value */
+					return false;
+				}
+				pcur1 = ptmp1;
+				pcur2 = ptmp2;
+				continue;
+			}
+			if (pcur1->p_elem == PLIST_ARRAY) {
+				if (pcur1->p_array.pa_numelems !=
+				    pcur2->p_array.pa_numelems) {
+					return false;
+				}
+
+				ptmp1 = TAILQ_FIRST(&pcur1->p_array.pa_elems);
+				if (ptmp1 == NULL) {
+					direction = NEXT;
+					break;
+				}
+				ptmp2 = TAILQ_FIRST(&pcur2->p_array.pa_elems);
+				assert(ptmp2 != NULL);
+				pcur1 = ptmp1;
+				pcur2 = ptmp2;
+				continue;
+			}
+
+			direction = NEXT;
+			break;
+		}
+		while (direction == NEXT) {
+			if (pcur1->p_parent == NULL &&
+			    pcur2->p_parent == NULL) {
+				/* all nodes are checked */
+				return true;
+			}
+			if (pcur1->p_parent == NULL ||
+			    pcur2->p_parent == NULL) {
+				/* mismatch in the ascent */
+				return false;
+			}
+
+			if (pcur1->p_parent->p_elem == PLIST_DICT) {
+				ptmp1 = TAILQ_NEXT(pcur1, p_entry);
+				if (ptmp1 == NULL) {
+					pcur1 = pcur1->p_parent;
+					pcur2 = pcur2->p_parent;
+					continue;
+				}
+				TAILQ_FOREACH(ptmp2,
+					      &pcur2->p_parent->p_dict.pd_keys,
+					      p_entry) {
+					if (strcmp(ptmp1->p_key.pk_name,
+						   ptmp2->p_key.pk_name) == 0)
+						break;
+				}
+				if (ptmp2 == NULL) {
+					/* no matching key */
+					return false;
+				}
+				pcur1 = ptmp1;
+				pcur2 = ptmp2;
+				break;
+			}
+			if (pcur1->p_parent->p_elem == PLIST_KEY) {
+				pcur1 = pcur1->p_parent;
+				pcur2 = pcur2->p_parent;
+				continue;
+			}
+			if (pcur1->p_parent->p_elem == PLIST_ARRAY) {
+				ptmp1 = TAILQ_NEXT(pcur1, p_entry);
+				if (ptmp1 == NULL) {
+					pcur1 = pcur1->p_parent;
+					pcur2 = pcur2->p_parent;
+					continue;
+				}
+				ptmp2 = TAILQ_NEXT(pcur2, p_entry);
+				assert(ptmp2 != NULL);
+				pcur1 = ptmp1;
+				pcur2 = ptmp2;
+				break;
+			}
+
+			/* get a next entry from an invalid element */
+			return false;
+		}
+	}
+
+	/* should not be reached */
+	return false;
+}
+
+
 plist_t *
 plist_first(const plist_t *plist, plist_iterator_t *pi)
 {
