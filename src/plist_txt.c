@@ -262,6 +262,9 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			chunk.pc_cp++;
 		}
 		if (chunk.pc_cp == chunk.pc_ep) {
+			if (txt->pt_top != NULL && txt->pt_depth == 0) {
+				txt->pt_state = PLIST_TXT_STATE_DONE;
+			}
 			return 0;
 		}
 
@@ -608,8 +611,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			return err;
 		}
 		_plist_txt_next(txt, ptmp);
-
-		txt->pt_state = PLIST_TXT_STATE_SCAN;
 		goto nextstate;
 
 	case PLIST_TXT_STATE_DATE:
@@ -652,8 +653,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			return err;
 		}
 		_plist_txt_next(txt, ptmp);
-
-		txt->pt_state = PLIST_TXT_STATE_SCAN;
 		goto nextstate;
 
 		
@@ -723,8 +722,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			return err;
 		}
 		_plist_txt_next(txt, ptmp);
-
-		txt->pt_state = PLIST_TXT_STATE_SCAN;
 		goto nextstate;
 
 	case PLIST_TXT_STATE_NUMBER:
@@ -779,8 +776,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 				return err;
 			}
 			_plist_txt_next(txt, ptmp);
-
-			txt->pt_state = PLIST_TXT_STATE_SCAN;
 			goto nextstate;
 		}
 
@@ -829,8 +824,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 				return err;
 			}
 			_plist_txt_next(txt, ptmp);
-
-			txt->pt_state = PLIST_TXT_STATE_SCAN;
 			goto nextstate;
 		}
 
@@ -866,8 +859,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			return err;
 		}
 		_plist_txt_next(txt, ptmp);
-
-		txt->pt_state = PLIST_TXT_STATE_SCAN;
 		goto nextstate;
 
 	case PLIST_TXT_STATE_FALSE:
@@ -900,8 +891,6 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 			return err;
 		}
 		_plist_txt_next(txt, ptmp);
-
-		txt->pt_state = PLIST_TXT_STATE_SCAN;
 		goto nextstate;
 
 	default:
