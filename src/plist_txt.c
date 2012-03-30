@@ -257,8 +257,8 @@ plist_txt_parse(plist_txt_t *txt, const void *buf, size_t sz)
 
 	case PLIST_TXT_STATE_SCAN:
 		/* eat whitespace */
-		while (isspace(chunk.pc_cp[0]) && chunk.pc_cp[0] != '\0' &&
-		       chunk.pc_cp != chunk.pc_ep) {
+		while (chunk.pc_cp != chunk.pc_ep &&
+		       isspace(chunk.pc_cp[0]) && chunk.pc_cp[0] != '\0')
 			chunk.pc_cp++;
 		}
 		if (chunk.pc_cp == chunk.pc_ep) {
