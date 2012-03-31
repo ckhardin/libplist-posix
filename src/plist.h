@@ -206,12 +206,12 @@ int plist_dict_set(plist_t *dict, const char *name, plist_t *value);
  * Remove a named entry from the given dictionary. It is an
  * error to remove an entry that does not exist.
  *
- * @param  array reference to be changed
+ * @param  dict  reference to be changed
  * @param  loc   numbec index location in the array
  * @param  plistpp result location of the object on success
  * @return zero on success or an error value
  */
-int plist_dict_pop(plist_t *array, const char *name, plist_t **plistpp);
+int plist_dict_pop(plist_t *dict, const char *name, plist_t **plistpp);
 
 /**
  * Remove the name entry in the dictionary and free the resources associated
